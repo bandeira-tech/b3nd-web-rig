@@ -1,0 +1,19 @@
+{
+  "libraries": [
+    {
+      "key": "b3nd-listener",
+      "label": "b3nd-listener",
+      "description": "",
+      "symbolCount": 8,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-listener"
+    },
+    {
+      "key": "b3nd-managed-node",
+      "label": "b3nd-managed-node",
+      "description": "B3nd Managed Node library.",
+      "symbolCount": 28,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-managed-node"
+    }
+  ],
+  "generatedAt": 1777635369399
+}
