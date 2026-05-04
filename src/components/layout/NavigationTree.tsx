@@ -16,69 +16,43 @@ export function NavigationTree() {
   const activeBackend = useAppStore((state) =>
     state.backends.find((b) => b.id === state.activeBackendId)
   );
+  const rig = useAppStore((state) => state.rig);
   const { expandedPaths, togglePathExpansion, loadSchemas } = useAppStore();
   const navigate = useNavigate();
 
-  console.log(
-    "[NavigationTree] Render. rootNodes:",
-    rootNodes,
-    "schemas:",
-    Object.keys(schemas),
-    "activeBackend:",
-    activeBackend?.id,
-    "loading:",
-    loading,
-  );
-
   useEffect(() => {
-    console.log(
-      "[NavigationTree:useEffect] activeBackend.id changed:",
-      activeBackend?.id,
-    );
-
     if (!activeBackend?.adapter) {
-      console.log("[NavigationTree:useEffect] No active backend");
       setError("No active backend");
       setLoading(false);
       return;
     }
 
+    // Wait for the rig to be wired before asking it for schemas.
+    // Rehydrate sets backends → rig → backendsReady; this effect can fire
+    // during the gap between backends and rig if we don't gate on rig.
+    if (!rig) return;
+
     const loadRoot = async () => {
       try {
-        console.log(
-          "[NavigationTree:loadRoot] Starting. Current schemas:",
-          Object.keys(schemas),
-        );
         setLoading(true);
         setError(null);
 
-        // Load schemas if not already loaded
         if (Object.keys(schemas).length === 0) {
-          console.log(
-            "[NavigationTree:loadRoot] Schemas empty, calling loadSchemas()",
-          );
           await loadSchemas();
-          console.log("[NavigationTree:loadRoot] loadSchemas() completed");
         } else {
-          // Schemas already loaded, just stop loading
-          console.log("[NavigationTree:loadRoot] Schemas already loaded");
           setLoading(false);
         }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : "Unknown error";
-        console.error("[NavigationTree:loadRoot] Error:", errMsg);
-        setError(
-          `Failed to load navigation: ${errMsg}`,
-        );
+        setError(`Failed to load navigation: ${errMsg}`);
       } finally {
         setLoading(false);
       }
     };
 
     loadRoot();
-    // Only depend on activeBackendId to avoid re-running when loadSchemas function changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBackend?.id]);
+  }, [activeBackend?.id, rig]);
 
   const handleToggle = useCallback(
     (path: string) => {
