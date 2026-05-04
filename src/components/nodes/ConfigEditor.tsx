@@ -8,7 +8,6 @@ import {
   useNodesStore,
 } from "./stores/nodesStore";
 import { useAppStore } from "../../stores/appStore";
-import { signAppPayload } from "../../services/writer/writerService";
 
 interface Props {
   entry: NetworkNodeEntry;
@@ -63,31 +62,19 @@ export function ConfigEditor({ entry, networkId }: Props) {
     setPushError(null);
 
     try {
-      // Get active account (must be ManagedKeyAccount for signing)
-      const { accounts, activeAccountId, backends, activeBackendId } =
-        useAppStore.getState();
-      const account = accounts.find((a) => a.id === activeAccountId);
-      if (!account || account.type === "application-user") {
-        throw new Error(
-          "Select an account or application key to sign config pushes",
-        );
-      }
-      const rig = useAppStore.getState().rig;
+      const { rig, identity } = useAppStore.getState();
       if (!rig) throw new Error("No rig instance available");
-      if (!rig.identity) {
+      if (!identity) {
         throw new Error("No identity set — select an account first");
       }
 
-      // Sign config with operator key
-      const signed = await signAppPayload({
-        identity: rig.identity,
-        payload: draft,
-      });
+      // Sign the config payload with the active identity
+      const signed = await identity.signMessage(draft);
 
-      // Write to correct URI
+      // Write to operator-namespaced URI
       const uri =
-        `mutable://accounts/${rig.identity.pubkey}/nodes/${entry.nodeId}/config`;
-      const result = await rig.client.receive([uri, signed]);
+        `mutable://accounts/${identity.pubkey}/nodes/${entry.nodeId}/config`;
+      const [result] = await rig.receive([[uri, signed]]);
 
       if (!result.accepted) {
         throw new Error(result.error || "Backend rejected config push");

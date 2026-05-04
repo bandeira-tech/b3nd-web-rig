@@ -1,4 +1,3 @@
-// React import not needed with react-jsx runtime
 import { useState } from "react";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import {
@@ -12,6 +11,12 @@ import {
 } from "lucide-react";
 import { cn } from "../../utils";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
+import {
+  connection,
+  createClientFromUrl,
+  Rig,
+} from "@bandeira-tech/b3nd-core/rig";
+import type { BackendConfig } from "../../types";
 
 export function RightPanel() {
   const { togglePanel } = useAppStore();
@@ -53,19 +58,23 @@ function BackendManager() {
     baseUrl: "",
   });
 
-  const handleAddBackend = (e: React.FormEvent) => {
+  const handleAddBackend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.baseUrl.trim()) {
-      return;
-    }
+    if (!formData.name.trim() || !formData.baseUrl.trim()) return;
 
-    addBackend({
+    const client = await createClientFromUrl(formData.baseUrl);
+    const rig = new Rig({
+      routes: {
+        receive: [connection(client, ["*"])],
+        read: [connection(client, ["*"])],
+      },
+    });
+    await addBackend({
       name: formData.name,
-      adapter: new HttpAdapter(formData.baseUrl),
+      adapter: new HttpAdapter(rig, formData.baseUrl),
       isActive: false,
     });
 
-    // Reset form
     setFormData({ name: "", baseUrl: "" });
     setShowAddForm(false);
   };
@@ -170,7 +179,7 @@ function BackendManager() {
   );
 }
 
-function BackendItem({ backend }: { backend: any }) {
+function BackendItem({ backend }: { backend: BackendConfig }) {
   const { setActiveBackend, removeBackend, activeBackendId } = useAppStore();
   const isActive = backend.id === activeBackendId;
 

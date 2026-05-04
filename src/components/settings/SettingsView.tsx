@@ -4,49 +4,28 @@ import {
   Database,
   Info,
   Plus,
-  Server,
-  Shield,
   Trash2,
 } from "lucide-react";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
+import { connection, createClientFromUrl, Rig } from "@bandeira-tech/b3nd-core/rig";
 import { useAppStore } from "../../stores/appStore";
-import type { EndpointConfig } from "../../types";
 
 export function SettingsView() {
-  useAppStore();
-
   return (
-    <>
+    <div className="space-y-4 p-4 max-w-3xl mx-auto">
       <BackendManager />
-      <WalletManager />
-      <AppServerManager />
       <AppInfo />
-    </>
+    </div>
   );
 }
 
 export function SettingsSidePanel() {
-  const {
-    backends,
-    activeBackendId,
-    walletServers,
-    activeWalletServerId,
-    appServers,
-    activeAppServerId,
-  } = useAppStore();
+  const backends = useAppStore((s) => s.backends);
+  const activeBackendId = useAppStore((s) => s.activeBackendId);
 
   const activeBackend = useMemo(
     () => backends.find((b) => b.id === activeBackendId),
     [backends, activeBackendId],
-  );
-  const activeWallet = useMemo(
-    () =>
-      walletServers.find((w) => w.id === activeWalletServerId && w.isActive),
-    [walletServers, activeWalletServerId],
-  );
-  const activeApp = useMemo(
-    () => appServers.find((w) => w.id === activeAppServerId && w.isActive),
-    [appServers, activeAppServerId],
   );
 
   return (
@@ -59,19 +38,7 @@ export function SettingsSidePanel() {
           title="Backend"
           icon={<Database className="h-4 w-4" />}
           primary={activeBackend?.name || "None selected"}
-          secondary={(activeBackend?.adapter as any)?.baseUrl || ""}
-        />
-        <SummaryCard
-          title="Wallet"
-          icon={<Shield className="h-4 w-4" />}
-          primary={activeWallet?.name || "None selected"}
-          secondary={activeWallet?.url || ""}
-        />
-        <SummaryCard
-          title="App Server"
-          icon={<Server className="h-4 w-4" />}
-          primary={activeApp?.name || "None selected"}
-          secondary={activeApp?.url || ""}
+          secondary={activeBackend?.adapter.baseUrl || ""}
         />
       </div>
     </aside>
@@ -116,7 +83,7 @@ function Section({
 }) {
   return (
     <section className="border border-border rounded-xl bg-card shadow-sm">
-      <div className="px-4 py-3 border-b border-border flex items-center space-x-2">
+      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
         {icon}
         <h2 className="font-semibold">{title}</h2>
       </div>
@@ -126,25 +93,27 @@ function Section({
 }
 
 function BackendManager() {
-  const {
-    backends,
-    addBackend,
-    setActiveBackend,
-    removeBackend,
-    activeBackendId,
-  } = useAppStore();
+  const backends = useAppStore((s) => s.backends);
+  const activeBackendId = useAppStore((s) => s.activeBackendId);
+  const addBackend = useAppStore((s) => s.addBackend);
+  const setActiveBackend = useAppStore((s) => s.setActiveBackend);
+  const removeBackend = useAppStore((s) => s.removeBackend);
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", baseUrl: "" });
 
-  const handleAddBackend = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.baseUrl.trim()) {
-      return;
-    }
+    if (!formData.name.trim() || !formData.baseUrl.trim()) return;
 
-    addBackend({
+    // Build a placeholder rig — addBackend recreates internally with its own rig wiring.
+    const client = await createClientFromUrl(formData.baseUrl);
+    const rig = new Rig({
+      routes: { receive: [connection(client, ["*"])], read: [connection(client, ["*"])] },
+    });
+    await addBackend({
       name: formData.name,
-      adapter: new HttpAdapter(formData.baseUrl),
+      adapter: new HttpAdapter(rig, formData.baseUrl),
       isActive: false,
     });
 
@@ -155,23 +124,19 @@ function BackendManager() {
   return (
     <Section title="Explorer Backend" icon={<Database className="h-4 w-4" />}>
       <p className="text-sm text-muted-foreground">
-        Configure the persistence backend shared by Explorer and Writer. Add
-        multiple endpoints and choose one as active.
+        Configure the persistence backend used by the rig. Add multiple
+        endpoints and pick one as active.
       </p>
       <div className="space-y-2 mb-4">
         {backends.map((backend) => (
           <EndpointItem
             key={backend.id}
-            item={{
-              id: backend.id,
-              name: backend.name,
-              url: (backend.adapter as any).baseUrl || "",
-              isActive: backend.isActive,
-            }}
+            id={backend.id}
+            name={backend.name}
+            url={backend.adapter.baseUrl || ""}
+            isActive={backend.id === activeBackendId}
             onActivate={() => setActiveBackend(backend.id)}
-            onRemove={() =>
-              removeBackend(backend.id)}
-            activeId={activeBackendId}
+            onRemove={() => removeBackend(backend.id)}
           />
         ))}
       </div>
@@ -181,7 +146,7 @@ function BackendManager() {
           <EndpointForm
             formData={formData}
             setFormData={setFormData}
-            onSubmit={handleAddBackend}
+            onSubmit={handleAdd}
             onCancel={() => {
               setShowAddForm(false);
               setFormData({ name: "", baseUrl: "" });
@@ -197,229 +162,69 @@ function BackendManager() {
   );
 }
 
-function WalletManager() {
-  const {
-    walletServers,
-    activeWalletServerId,
-    addWalletServer,
-    removeWalletServer,
-    setActiveWalletServer,
-  } = useAppStore();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [formData, setFormData] = useState({ name: "", baseUrl: "" });
-
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim() || !formData.baseUrl.trim()) return;
-    addWalletServer({
-      name: formData.name,
-      url: formData.baseUrl,
-      isActive: false,
-    });
-    setFormData({ name: "", baseUrl: "" });
-    setShowAddForm(false);
-  };
-
-  return (
-    <Section title="Wallet Servers" icon={<Shield className="h-4 w-4" />}>
-      <p className="text-sm text-muted-foreground">
-        Configure wallet servers used for auth and proxy operations.
-      </p>
-      <div className="space-y-2 mb-4">
-        {walletServers.map((server) => (
-          <EndpointItem
-            key={server.id}
-            item={server}
-            onActivate={() => setActiveWalletServer(server.id)}
-            onRemove={() => removeWalletServer(server.id)}
-            activeId={activeWalletServerId}
-          />
-        ))}
-      </div>
-      {showAddForm
-        ? (
-          <EndpointForm
-            formData={formData}
-            setFormData={setFormData}
-            onSubmit={handleAdd}
-            onCancel={() => {
-              setShowAddForm(false);
-              setFormData({ name: "", baseUrl: "" });
-            }}
-            placeholder="http://localhost:3001"
-            cta="Add wallet server"
-          />
-        )
-        : (
-          <AddButton
-            onClick={() => setShowAddForm(true)}
-            label="Add Wallet Server"
-          />
-        )}
-    </Section>
-  );
-}
-
-function AppServerManager() {
-  const {
-    appServers,
-    activeAppServerId,
-    addAppServer,
-    removeAppServer,
-    setActiveAppServer,
-  } = useAppStore();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [formData, setFormData] = useState({ name: "", baseUrl: "" });
-
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim() || !formData.baseUrl.trim()) return;
-    addAppServer({
-      name: formData.name,
-      url: formData.baseUrl,
-      isActive: false,
-    });
-    setFormData({ name: "", baseUrl: "" });
-    setShowAddForm(false);
-  };
-
-  return (
-    <Section title="App Servers" icon={<Server className="h-4 w-4" />}>
-      <p className="text-sm text-muted-foreground">
-        Configure app servers for actions and schemas.
-      </p>
-      <div className="space-y-2 mb-4">
-        {appServers.map((server) => (
-          <EndpointItem
-            key={server.id}
-            item={server}
-            onActivate={() => setActiveAppServer(server.id)}
-            onRemove={() => removeAppServer(server.id)}
-            activeId={activeAppServerId}
-          />
-        ))}
-      </div>
-      {showAddForm
-        ? (
-          <EndpointForm
-            formData={formData}
-            setFormData={setFormData}
-            onSubmit={handleAdd}
-            onCancel={() => {
-              setShowAddForm(false);
-              setFormData({ name: "", baseUrl: "" });
-            }}
-            placeholder="http://localhost:3003"
-            cta="Add app server"
-          />
-        )
-        : (
-          <AddButton
-            onClick={() => setShowAddForm(true)}
-            label="Add App Server"
-          />
-        )}
-    </Section>
-  );
-}
-
 function AppInfo() {
   return (
-    <Section title="Application Info" icon={<Info className="h-4 w-4" />}>
-      <div className="space-y-3 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Version:</span>
-          <span>1.0.0-dev</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">React:</span>
-          <span>19.1.0</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Mode:</span>
-          <span className="font-mono">development</span>
-        </div>
-      </div>
+    <Section title="About" icon={<Info className="h-4 w-4" />}>
+      <p className="text-sm text-muted-foreground">
+        B3nd Web Rig — generic UI surface for browsing and writing through a
+        rig. Protocol-specific UIs ship as plugins.
+      </p>
     </Section>
   );
 }
 
 function EndpointItem({
-  item,
+  id,
+  name,
+  url,
+  isActive,
   onActivate,
   onRemove,
-  activeId,
 }: {
-  item: EndpointConfig;
+  id: string;
+  name: string;
+  url: string;
+  isActive: boolean;
   onActivate: () => void;
   onRemove: () => void;
-  activeId: string | null;
 }) {
-  const isActive = item.id === activeId;
-  const activate = () => {
-    if (!isActive) onActivate();
-  };
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      activate();
-    }
-  };
-
-  const baseClasses = isActive
-    ? "border-primary bg-primary/5"
-    : "border-border hover:bg-accent cursor-pointer";
-
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={activate}
-      onKeyDown={handleKeyDown}
-      className={`flex items-center justify-between p-3 rounded border transition-colors ${baseClasses}`}
+      className={`flex items-center gap-3 rounded border p-3 ${
+        isActive ? "border-primary bg-primary/5" : "border-border"
+      }`}
     >
-      <div className="flex items-center space-x-3 min-w-0 flex-1">
-        <div className="flex items-center space-x-2">
-          {isActive
-            ? <CheckCircle className="h-4 w-4 text-primary" />
-            : (
-              <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
-            )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="font-medium text-sm truncate">{name}</p>
+          {isActive && (
+            <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" /> active
+            </span>
+          )}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="font-medium text-sm truncate">{item.name}</div>
-          <div className="text-xs text-muted-foreground truncate">
-            {item.url}
-          </div>
-        </div>
+        <p className="text-xs text-muted-foreground truncate font-mono">
+          {url}
+        </p>
       </div>
-      <div className="flex items-center space-x-1 flex-shrink-0">
-        {!isActive && (
-          <>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onActivate();
-              }}
-              className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-              title="Set active"
-            >
-              <CheckCircle className="h-3 w-3" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove();
-              }}
-              className="p-1 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
-              title="Remove"
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </>
-        )}
-      </div>
+      {!isActive && (
+        <button
+          className="text-xs px-2 py-1 rounded border border-border hover:bg-muted"
+          onClick={onActivate}
+        >
+          Set active
+        </button>
+      )}
+      <button
+        className="p-2 text-muted-foreground hover:text-red-500"
+        title="Remove"
+        onClick={() => {
+          if (confirm(`Remove ${name}?`)) onRemove();
+        }}
+        data-id={id}
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
     </div>
   );
 }
@@ -440,42 +245,32 @@ function EndpointForm({
   cta: string;
 }) {
   return (
-    <form
-      onSubmit={onSubmit}
-      className="space-y-3 p-3 border border-border rounded-lg bg-muted/20"
-    >
-      <div className="space-y-1">
-        <label className="block text-sm font-medium">Name</label>
-        <input
-          type="text"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="w-full px-3 py-2 bg-background border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          autoFocus
-        />
-      </div>
-      <div className="space-y-1">
-        <label className="block text-sm font-medium">Base URL</label>
-        <input
-          type="text"
-          value={formData.baseUrl}
-          onChange={(e) =>
-            setFormData({ ...formData, baseUrl: e.target.value })}
-          placeholder={placeholder}
-          className="w-full px-3 py-2 bg-background border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
-      <div className="flex space-x-2">
+    <form onSubmit={onSubmit} className="space-y-2">
+      <input
+        type="text"
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        placeholder="Name"
+        className="w-full text-sm bg-background border border-border rounded px-3 py-2"
+      />
+      <input
+        type="text"
+        value={formData.baseUrl}
+        onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
+        placeholder={placeholder}
+        className="w-full text-sm font-mono bg-background border border-border rounded px-3 py-2"
+      />
+      <div className="flex gap-2">
         <button
           type="submit"
-          className="flex-1 px-3 py-2 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 transition-colors"
+          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded bg-primary text-primary-foreground hover:bg-primary/90"
         >
           {cta}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-3 py-2 bg-muted text-foreground rounded text-sm hover:bg-muted/80 transition-colors"
+          className="px-3 py-2 text-sm rounded border border-border hover:bg-muted"
         >
           Cancel
         </button>
@@ -488,10 +283,9 @@ function AddButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
       onClick={onClick}
-      className="w-full p-2 border border-dashed border-border rounded-lg hover:bg-accent transition-colors flex items-center justify-center space-x-2 text-muted-foreground hover:text-foreground"
+      className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded border border-dashed border-border hover:bg-muted"
     >
-      <Plus className="h-4 w-4" />
-      <span className="text-sm">{label}</span>
+      <Plus className="h-4 w-4" /> {label}
     </button>
   );
 }

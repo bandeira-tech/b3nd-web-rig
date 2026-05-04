@@ -1,3 +1,5 @@
+import type { Identity } from "@bandeira-tech/b3nd-core/identity";
+
 // Navigation and UI types
 export interface NavigationNode {
   path: string; // Primary identifier (e.g., "/users/alice/profile")
@@ -54,7 +56,11 @@ export interface BackendAdapter {
   ): Promise<PaginatedResponse<SearchResult>>;
 
   // Metadata
-  getStatus(): Promise<Record<string, string[]>>; // Programs keyed by backend (single entry)
+  getStatus(): Promise<{
+    status: "healthy" | "degraded" | "unhealthy";
+    schema?: string[];
+    message?: string;
+  }>;
   healthCheck(): Promise<boolean>;
 }
 
@@ -65,31 +71,21 @@ export interface BackendConfig {
   isActive: boolean;
 }
 
-export interface EndpointConfig {
-  id: string;
-  name: string;
-  url: string;
-  isActive: boolean;
-}
-
 // Application state types
 export type AppMode = "filesystem" | "search" | "watched";
 export type AppExperience =
   | "explorer"
   | "editor"
-  | "writer"
-  | "dashboard"
-  | "nodes"
-  | "learn"
-  | "api-docs";
-export type WriterSection =
-  | "backend"
-  | "hash"
-  | "auth"
-  | "actions"
-  | "configuration"
-  | "schema"
-  | "shareable";
+  | "nodes";
+
+/**
+ * Editor sections — the rig-level write surface.
+ *  - text: URI template + plaintext payload
+ *  - file: URI template + file bytes payload
+ * Protocol-specific sections (auth, schema, etc.) belong in plugins.
+ */
+export type EditorSection = "text" | "file";
+
 export type AppMainView = "content" | "settings" | "accounts";
 
 export type ThemeMode = "light" | "dark" | "system";
@@ -118,22 +114,11 @@ export interface KeyBundle {
   encryptionPrivateKeyPem: string;
 }
 
-export type ManagedAccountType = "account" | "application" | "application-user";
-
-export interface AccountAuthKeys {
-  accountPublicKeyHex: string;
-  encryptionPublicKeyHex: string;
-}
-
-interface BaseManagedAccount {
+export interface ManagedAccount {
   id: string;
   name: string;
   createdAt: number;
   emoji: string;
-}
-
-export interface ManagedKeyAccount extends BaseManagedAccount {
-  type: "account" | "application";
   /** Signing public key hex — the account's address on the network. */
   pubkey: string;
   /** Encryption public key hex. */
@@ -147,53 +132,19 @@ export interface ManagedKeyAccount extends BaseManagedAccount {
   keyBundle?: KeyBundle;
 }
 
-export interface ManagedApplicationUserAccount extends BaseManagedAccount {
-  type: "application-user";
-  appAccountId: string;
-  appName: string;
-  appKey: string;
-  appSession: string;
-  userSession: WriterUserSession;
-  authKeys: AccountAuthKeys;
-  googleClientId: string | null;
-}
-
-export type ManagedAccount = ManagedKeyAccount | ManagedApplicationUserAccount;
-
-export interface WriterUserSession {
-  username: string;
-  token: string;
-  expiresIn: number;
-}
-
-/**
- * Session keypair for wallet authentication.
- * This must be generated and approved before login/signup.
- */
-export interface WriterSessionKeypair {
-  publicKeyHex: string;
-  privateKeyHex: string;
-}
-
-/**
- * App session state including the session ID and keypair for authentication.
- */
-export interface WriterAppSession {
-  sessionId: string;
-  sessionKeypair: WriterSessionKeypair;
+export interface EditorOutput {
+  id: string;
+  uri: string;
+  data: unknown;
+  timestamp: number;
+  accepted: boolean;
+  error?: string;
 }
 
 export interface AppState {
   // Backend management
   backends: BackendConfig[];
   activeBackendId: string | null;
-
-  walletServers: EndpointConfig[];
-  activeWalletServerId: string | null;
-
-  appServers: EndpointConfig[];
-  activeAppServerId: string | null;
-  googleClientId: string;
 
   // Schema and root navigation
   schemas: Record<string, string[]>; // Schemas by instance: { instanceId: [uris] }
@@ -215,19 +166,14 @@ export interface AppState {
   mode: AppMode;
   activeApp: AppExperience;
   mainView: AppMainView;
-  writerSection: WriterSection;
-  writerAppSession: WriterAppSession | null;
-  writerSession: WriterUserSession | null;
-  writerLastResolvedUri: string | null;
-  writerLastAppUri: string | null;
-  writerOutputs: Array<{
-    id: string;
-    data: unknown;
-    timestamp: number;
-    uri?: string;
-  }>;
+  editorSection: EditorSection;
+  editorLastResolvedUri: string | null;
+  editorOutputs: EditorOutput[];
+
+  // Identity / accounts (rig is identity-free; the host owns it)
   accounts: ManagedAccount[];
   activeAccountId: string | null;
+  identity: Identity | null;
 
   formState: Record<string, Record<string, string>>;
 
@@ -250,13 +196,6 @@ export interface AppActions {
   removeBackend: (id: string) => void;
   setActiveBackend: (id: string) => void | Promise<void>;
   loadEndpoints: () => Promise<void>;
-  addWalletServer: (config: Omit<EndpointConfig, "id">) => void;
-  removeWalletServer: (id: string) => void;
-  setActiveWalletServer: (id: string) => void;
-  addAppServer: (config: Omit<EndpointConfig, "id">) => void;
-  removeAppServer: (id: string) => void;
-  setActiveAppServer: (id: string) => void;
-  setGoogleClientId: (id: string) => void;
   closeSettings: () => void;
 
   // Schema actions
@@ -285,12 +224,9 @@ export interface AppActions {
   setMode: (mode: AppMode) => void;
   setActiveApp: (app: AppExperience) => void;
   setMainView: (view: AppMainView) => void;
-  setWriterSection: (section: WriterSection) => void;
-  setWriterAppSession: (session: WriterAppSession | null) => void;
-  setWriterSession: (session: WriterUserSession | null) => void;
-  setWriterLastResolvedUri: (uri: string | null) => void;
-  setWriterLastAppUri: (uri: string | null) => void;
-  addWriterOutput: (output: unknown, uri?: string) => void;
+  setEditorSection: (section: EditorSection) => void;
+  setEditorLastResolvedUri: (uri: string | null) => void;
+  addEditorOutput: (output: Omit<EditorOutput, "id" | "timestamp">) => void;
   addAccount: (account: ManagedAccount) => void;
   removeAccount: (id: string) => void;
   setActiveAccount: (id: string | null) => void;

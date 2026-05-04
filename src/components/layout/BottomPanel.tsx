@@ -136,39 +136,25 @@ function WriterStateView() {
   const {
     accounts,
     activeAccountId,
-    writerAppSession,
-    writerSession,
-    writerLastResolvedUri,
-    writerLastAppUri,
+    editorLastResolvedUri,
     activeApp,
+    identity,
   } = useAppStore();
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
-  const pubkey = activeAccount && activeAccount.type !== "application-user"
-    ? activeAccount.pubkey
-    : "";
 
-  if (activeApp !== "writer") {
+  if (activeApp !== "editor") {
     return (
       <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-        Switch to the Writer experience to view app state.
+        Switch to the Editor experience to view state.
       </div>
     );
   }
 
   const rows: Array<{ label: string; value: string }> = [
-    { label: "App Key", value: pubkey },
-    { label: "App Session", value: writerAppSession?.sessionId || "" },
-    { label: "User", value: writerSession?.username || "" },
-    { label: "Authenticated", value: writerSession ? "yes" : "no" },
-    { label: "Login Session (JWT)", value: writerSession?.token || "" },
-    {
-      label: "Expires In",
-      value: writerSession?.expiresIn !== undefined
-        ? String(writerSession.expiresIn)
-        : "",
-    },
-    { label: "Last URI", value: writerLastResolvedUri || "" },
-    { label: "Last App URI", value: writerLastAppUri || "" },
+    { label: "Account", value: activeAccount?.name || "" },
+    { label: "Pubkey", value: identity?.pubkey || "" },
+    { label: "Encryption pubkey", value: identity?.encryptionPubkey || "" },
+    { label: "Last URI", value: editorLastResolvedUri || "" },
   ];
 
   return (
@@ -187,17 +173,15 @@ function WriterStateView() {
 }
 
 function WriterOutputView() {
-  const { writerOutputs, activeApp } = useAppStore();
+  const { editorOutputs, activeApp } = useAppStore();
 
-  if (activeApp !== "writer") {
+  if (activeApp !== "editor") {
     return (
       <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-        Switch to the Writer experience to view output.
+        Switch to the Editor experience to view output.
       </div>
     );
   }
-
-  const entries = writerOutputs;
 
   return (
     <div className="h-full flex flex-col p-4 space-y-3">
@@ -205,7 +189,7 @@ function WriterOutputView() {
         <Play className="h-3 w-3" />
         <span>Output</span>
       </div>
-      {entries.length === 0
+      {editorOutputs.length === 0
         ? (
           <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
             No output yet.
@@ -213,44 +197,31 @@ function WriterOutputView() {
         )
         : (
           <div className="flex-1 space-y-3 overflow-auto custom-scrollbar pr-1">
-            {entries.map((entry) => {
-              const inferredUri = resolveOutputUri(entry);
-              return (
-                <div
-                  key={entry.id}
-                  className="border border-border rounded-lg bg-muted/40 p-3 font-mono text-xs"
-                >
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-2">
-                    <span className="truncate" title={inferredUri || "No URI"}>
-                      {inferredUri || "No URI"}
-                    </span>
-                    <span>
-                      {new Date(entry.timestamp).toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <pre className="whitespace-pre-wrap break-words">
-                    {JSON.stringify(entry.data, null, 2)}
-                  </pre>
+            {editorOutputs.map((entry) => (
+              <div
+                key={entry.id}
+                className="border border-border rounded-lg bg-muted/40 p-3 font-mono text-xs"
+              >
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-2">
+                  <span className="truncate" title={entry.uri}>
+                    {entry.uri}
+                  </span>
+                  <span>
+                    {new Date(entry.timestamp).toLocaleTimeString()}
+                  </span>
                 </div>
-              );
-            })}
+                {entry.error && (
+                  <div className="text-red-500 mb-1">{entry.error}</div>
+                )}
+                <pre className="whitespace-pre-wrap break-words">
+                  {JSON.stringify(entry.data, null, 2)}
+                </pre>
+              </div>
+            ))}
           </div>
         )}
     </div>
   );
-}
-
-function resolveOutputUri(entry: { uri?: string; data: unknown }) {
-  if (entry.uri) return entry.uri;
-  if (!entry.data || typeof entry.data !== "object") return undefined;
-  const record = entry.data as Record<string, unknown>;
-  return typeof record.uri === "string"
-    ? record.uri
-    : typeof record.resolvedUri === "string"
-    ? record.resolvedUri
-    : typeof record.targetUri === "string"
-    ? record.targetUri
-    : undefined;
 }
 
 function StateRow({ label, value }: { label: string; value: string }) {

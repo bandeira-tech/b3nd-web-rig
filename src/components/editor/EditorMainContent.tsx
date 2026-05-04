@@ -1,582 +1,435 @@
-import { useCallback, useEffect, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
-  CheckCircle,
+  CheckCircle2,
   FileText,
-  KeyRound,
-  Loader2,
+  Info,
   Lock,
-  LockOpen,
-  Save,
-  Shield,
-  ShieldCheck,
-  User,
+  Send,
+  Upload,
 } from "lucide-react";
-import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-canon/hash";
-import type { EncryptedPayload } from "@bandeira-tech/b3nd-canon/encrypt";
-import { useActiveBackend, useAppStore } from "../../stores/appStore";
-import { signAppPayload } from "../../services/writer/writerService";
+import { useAppStore } from "../../stores/appStore";
 import { cn } from "../../utils";
-import type { EditorDocument, SaveVersionInput } from "./EditorLayoutSlot";
-import type { ManagedKeyAccount } from "../../types";
-import type { Identity } from "@bandeira-tech/b3nd-core/identity";
+import {
+  type BackendClient,
+  writeFile,
+  writePlain,
+} from "../../services/editor/editorService";
+import {
+  findTokens,
+  knownTokens,
+  resolveUriTemplate,
+} from "../../services/editor/uriTemplate";
 
-interface EditorMainContentProps {
-  activeDoc: EditorDocument | null;
-  viewingVersionIndex: number | null;
-  encryptionEnabled: boolean;
-  onAddDocument: (title: string) => string;
-  onSaveVersion: (input: SaveVersionInput) => void;
-  onViewVersion: (index: number | null) => void;
-  onSetEncryptionEnabled: (enabled: boolean) => void;
-}
+const TEMPLATE_PLACEHOLDER = ":account / :hash / :signature";
 
-/**
- * Attempt to decrypt an EncryptedPayload using the rig Identity.
- * Returns the decrypted `{ title, body }` object or null on failure.
- */
-async function tryDecryptContent(
-  encPayload: EncryptedPayload,
-  identity: Identity,
-): Promise<{ title: string; body: string } | null> {
-  try {
-    const decryptedBytes = await identity.decrypt(encPayload);
-    const decrypted = JSON.parse(new TextDecoder().decode(decryptedBytes));
-    if (
-      decrypted &&
-      typeof decrypted === "object" &&
-      "title" in decrypted &&
-      "body" in decrypted
-    ) {
-      return decrypted as { title: string; body: string };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Checks if a ManagedAccount is a key-based account (account or application)
- * that can sign and encrypt.
- */
-function isKeyAccount(
-  account: { type: string } | null,
-): account is ManagedKeyAccount {
-  return account !== null &&
-    (account.type === "account" || account.type === "application");
-}
-
-export function EditorMainContent({
-  activeDoc,
-  viewingVersionIndex,
-  encryptionEnabled,
-  onSaveVersion,
-  onViewVersion,
-  onSetEncryptionEnabled,
-}: EditorMainContentProps) {
-  const activeBackend = useActiveBackend();
+export function EditorMainContent() {
+  const editorSection = useAppStore((s) => s.editorSection);
+  const rig = useAppStore((s) => s.rig);
+  const identity = useAppStore((s) => s.identity);
   const accounts = useAppStore((s) => s.accounts);
   const activeAccountId = useAppStore((s) => s.activeAccountId);
-  const addLogEntry = useAppStore((s) => s.addLogEntry);
+  const editorOutputs = useAppStore((s) => s.editorOutputs);
+  const lastResolvedUri = useAppStore((s) => s.editorLastResolvedUri);
+  const setLastResolvedUri = useAppStore((s) => s.setEditorLastResolvedUri);
+  const addOutput = useAppStore((s) => s.addEditorOutput);
 
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(
-    null,
+  const activeAccount = useMemo(
+    () => accounts.find((a) => a.id === activeAccountId) || null,
+    [accounts, activeAccountId],
   );
-  // Decrypted version body for encrypted historical versions
-  const [decryptedVersionBody, setDecryptedVersionBody] = useState<
-    string | null
-  >(null);
-  const [decrypting, setDecrypting] = useState(false);
 
-  const activeAccount = accounts.find((a) => a.id === activeAccountId) ?? null;
-  const hasKeyAccount = isKeyAccount(activeAccount);
-  const rigIdentity = useAppStore((s) => s.rig?.identity ?? null);
-  const canEncrypt = rigIdentity !== null && rigIdentity.canEncrypt;
-
-  // Sync local state when active doc changes
-  useEffect(() => {
-    if (!activeDoc) {
-      setTitle("");
-      setBody("");
-      setStatus(null);
-      return;
-    }
-    setTitle(activeDoc.title);
-    // Load latest version body if available, otherwise empty
-    if (activeDoc.versions.length > 0) {
-      setBody(activeDoc.versions[0].body);
-    } else {
-      setBody("");
-    }
-    setStatus(null);
-  }, [activeDoc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reset decrypted version when viewing version changes
-  useEffect(() => {
-    setDecryptedVersionBody(null);
-  }, [viewingVersionIndex]);
-
-  const rig = useAppStore((s) => s.rig);
-
-  // Decrypt a historical version from the backend
-  const handleDecryptVersion = useCallback(async (hashUri: string) => {
-    if (!hasKeyAccount) return;
-
-    if (!rig) return;
-
-    setDecrypting(true);
-    try {
-      const hashResults = await rig.read(hashUri);
-      const hashRead = hashResults[0];
-      if (!hashRead?.success || !hashRead.record) {
-        addLogEntry({
-          source: "editor",
-          message: `Failed to read encrypted content for decryption: ${
-            hashRead?.error || "not found"
-          }`,
-          level: "error",
-        });
-        setDecryptedVersionBody("[Failed to read content from backend]");
-        return;
-      }
-
-      const storedData = hashRead.record.data as unknown;
-      // The stored data should be an EncryptedPayload { data, nonce, ephemeralPublicKey }
-      if (
-        storedData &&
-        typeof storedData === "object" &&
-        "data" in (storedData as Record<string, unknown>) &&
-        "nonce" in (storedData as Record<string, unknown>)
-      ) {
-        if (!rigIdentity || !rigIdentity.canEncrypt) {
-          setDecryptedVersionBody("[No encryption identity available]");
-          return;
-        }
-        const result = await tryDecryptContent(
-          storedData as EncryptedPayload,
-          rigIdentity,
-        );
-        if (result) {
-          setDecryptedVersionBody(result.body);
-          addLogEntry({
-            source: "editor",
-            message: `Decrypted version content successfully`,
-            level: "success",
-          });
-        } else {
-          setDecryptedVersionBody(
-            "[Decryption failed -- wrong key or corrupted data]",
-          );
-          addLogEntry({
-            source: "editor",
-            message: `Decryption failed for ${hashUri}`,
-            level: "error",
-          });
-        }
-      } else {
-        // Not encrypted -- show raw body
-        const rawData = storedData as { body?: string };
-        setDecryptedVersionBody(rawData?.body ?? JSON.stringify(storedData));
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setDecryptedVersionBody(`[Decryption error: ${message}]`);
-      addLogEntry({
-        source: "editor",
-        message: `Decryption error: ${message}`,
-        level: "error",
-      });
-    } finally {
-      setDecrypting(false);
-    }
-  }, [hasKeyAccount, rigIdentity, rig, addLogEntry]);
-
-  const handleSave = useCallback(async () => {
-    if (!activeDoc) return;
-    if (!body.trim()) return;
-
-    if (!rig) {
-      setStatus({ ok: false, message: "No active backend configured" });
-      return;
-    }
-
-    setSaving(true);
-    setStatus(null);
-
-    const shouldEncrypt = encryptionEnabled && canEncrypt && hasKeyAccount;
-
-    try {
-      // 1. Prepare content -- encrypt if enabled
-      const contentObj = { title, body };
-      let contentData: unknown;
-
-      if (shouldEncrypt && rigIdentity && rigIdentity.canEncrypt) {
-        const plaintext = new TextEncoder().encode(JSON.stringify(contentObj));
-        contentData = await rigIdentity.encrypt(
-          plaintext,
-          rigIdentity.encryptionPubkey,
-        );
-      } else {
-        contentData = contentObj;
-      }
-
-      // 2. Hash the (possibly encrypted) content
-      const hash = await computeSha256(contentData);
-      const hashUri = generateHashUri(hash);
-
-      // 3. Build link URI based on auth state
-      const docPath = `docs/${activeDoc.id}`;
-      let linkUri: string;
-      let linkPayload: unknown;
-      let signedBy: string | null = null;
-
-      if (rigIdentity && rigIdentity.canSign) {
-        linkUri = `link://accounts/${rigIdentity.pubkey}/${docPath}`;
-        linkPayload = await signAppPayload({
-          identity: rigIdentity,
-          payload: hashUri,
-        });
-        signedBy = rigIdentity.pubkey;
-      } else {
-        linkUri = `link://open/${docPath}`;
-        linkPayload = hashUri;
-      }
-
-      // 4. Store content at hash URI, then update link pointer
-      // rig "receive:error" event handles logging to bottom panel
-      const hashResponse = await rig.receive([hashUri, contentData]);
-      if (!hashResponse.accepted) {
-        setStatus({
-          ok: false,
-          message: hashResponse.error || "Hash store rejected",
-        });
-        return;
-      }
-
-      const response = await rig.receive([linkUri, linkPayload]);
-
-      if (response.accepted) {
-        onSaveVersion({
-          docId: activeDoc.id,
-          title,
-          body,
-          hashUri,
-          linkUri,
-          encrypted: shouldEncrypt,
-          signedBy,
-          encryptionPublicKeyHex: shouldEncrypt && rigIdentity
-            ? rigIdentity.encryptionPubkey
-            : null,
-        });
-
-        const encLabel = shouldEncrypt ? " (encrypted)" : "";
-        const authLabel = signedBy ? " (signed)" : "";
-        setStatus({ ok: true, message: `Saved${authLabel}${encLabel}` });
-        addLogEntry({
-          source: "editor",
-          message: `Saved${encLabel}${authLabel}: ${hashUri} -> ${linkUri}`,
-          level: "success",
-        });
-
-        // Read-back confirmation — success logged here for context,
-        // failures handled by rig "read:error" event
-        try {
-          const hashResults = await rig.read(hashUri);
-          const hashRead = hashResults[0];
-          if (hashRead?.success && hashRead.record) {
-            addLogEntry({
-              source: "editor",
-              message: `Read-back confirmed: ${
-                JSON.stringify(hashRead.record.data).slice(0, 120)
-              }`,
-              level: "info",
-            });
-          }
-        } catch {
-          // rig "read:error" event handles this
-        }
-      } else {
-        // rig "receive:error" event handles logging to bottom panel
-        setStatus({ ok: false, message: response.error || "Save rejected" });
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setStatus({ ok: false, message });
-      addLogEntry({
-        source: "editor",
-        message: `Save error: ${message}`,
-        level: "error",
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [
-    activeDoc,
-    title,
-    body,
-    rig,
-    activeAccount,
-    hasKeyAccount,
-    canEncrypt,
-    encryptionEnabled,
-    onSaveVersion,
-    addLogEntry,
-  ]);
-
-  // -- Empty state: no document selected --
-  if (!activeDoc) {
+  if (editorSection === "file") {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-        <FileText className="w-10 h-10 mb-3 opacity-40" />
-        <p className="text-sm">Select a document or create a new one</p>
-      </div>
+      <Surface
+        rig={rig}
+        identity={identity}
+        identityHint={activeAccount?.name || null}
+        addOutput={addOutput}
+        setLastResolvedUri={setLastResolvedUri}
+        lastResolvedUri={lastResolvedUri}
+        outputs={editorOutputs}
+        mode="file"
+      />
     );
   }
 
-  // -- Viewing a historical version --
-  const isViewingHistory = viewingVersionIndex !== null;
-  const viewedVersion = isViewingHistory
-    ? activeDoc.versions[viewingVersionIndex]
-    : null;
-
-  if (isViewingHistory && viewedVersion) {
-    const versionIsEncrypted = viewedVersion.encrypted;
-
-    return (
-      <div className="h-full flex flex-col overflow-y-auto custom-scrollbar">
-        <div className="max-w-3xl w-full mx-auto px-6 py-6 flex flex-col gap-5 flex-1">
-          {/* Version metadata badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {viewedVersion.signedBy && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                <ShieldCheck className="w-3 h-3" />
-                Signed
-              </span>
-            )}
-            {versionIsEncrypted
-              ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                  <Lock className="w-3 h-3" />
-                  Encrypted
-                </span>
-              )
-              : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-muted text-muted-foreground border border-border">
-                  <LockOpen className="w-3 h-3" />
-                  Plaintext
-                </span>
-              )}
-          </div>
-
-          {/* Read-only title */}
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Title
-            </label>
-            <div className="px-3 py-1.5 text-sm rounded border border-border bg-muted/30">
-              {activeDoc.title}
-            </div>
-          </div>
-
-          {/* Read-only body */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Content (version #{activeDoc.versions.length -
-                viewingVersionIndex})
-            </label>
-            {versionIsEncrypted && decryptedVersionBody === null
-              ? (
-                <div className="flex-1 min-h-[200px] px-3 py-2 text-sm rounded border border-amber-500/30 bg-amber-500/5 flex flex-col items-center justify-center gap-3">
-                  <Lock className="w-8 h-8 text-amber-500/60" />
-                  <p className="text-xs text-muted-foreground text-center">
-                    This version is encrypted. Decrypt with your account key to
-                    view.
-                  </p>
-                  <button
-                    onClick={() => handleDecryptVersion(viewedVersion.hashUri)}
-                    disabled={decrypting || !hasKeyAccount}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded",
-                      "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
-                      "hover:bg-amber-500/20 transition-colors",
-                      "disabled:opacity-50 disabled:cursor-not-allowed",
-                    )}
-                  >
-                    {decrypting
-                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      : <KeyRound className="w-3.5 h-3.5" />}
-                    {decrypting ? "Decrypting..." : "Decrypt"}
-                  </button>
-                  {!hasKeyAccount && (
-                    <p className="text-[10px] text-muted-foreground">
-                      Select an account with encryption keys to decrypt
-                    </p>
-                  )}
-                </div>
-              )
-              : (
-                <div className="flex-1 min-h-[200px] px-3 py-2 text-sm rounded border border-border bg-muted/30 whitespace-pre-wrap overflow-auto">
-                  {versionIsEncrypted
-                    ? decryptedVersionBody
-                    : viewedVersion.body}
-                </div>
-              )}
-          </div>
-
-          {/* Back to editing */}
-          <div>
-            <button
-              onClick={() => onViewVersion(null)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded",
-                "bg-primary text-primary-foreground",
-                "hover:bg-primary/90 transition-colors",
-              )}
-            >
-              Back to editing
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // -- Editing state --
   return (
-    <div className="h-full flex flex-col overflow-y-auto custom-scrollbar">
-      <div className="max-w-3xl w-full mx-auto px-6 py-6 flex flex-col gap-5 flex-1">
-        {/* Account and security status bar */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Account indicator */}
-          {hasKeyAccount
-            ? (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
-                <User className="w-3.5 h-3.5 text-blue-500" />
-                <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 truncate max-w-[160px]">
-                  {activeAccount.name}
-                </span>
-                <ShieldCheck className="w-3 h-3 text-blue-500/60" />
-              </div>
-            )
-            : (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted border border-border">
-                <Shield className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground">
-                  No account (unsigned)
-                </span>
-              </div>
-            )}
+    <Surface
+      rig={rig}
+      identity={identity}
+      identityHint={activeAccount?.name || null}
+      addOutput={addOutput}
+      setLastResolvedUri={setLastResolvedUri}
+      lastResolvedUri={lastResolvedUri}
+      outputs={editorOutputs}
+      mode="text"
+    />
+  );
+}
 
-          {/* Encryption toggle */}
-          <button
-            onClick={() => onSetEncryptionEnabled(!encryptionEnabled)}
-            disabled={!canEncrypt}
-            title={!hasKeyAccount
-              ? "Select an account to enable encryption"
-              : !canEncrypt
-              ? "Account has no encryption key"
-              : encryptionEnabled
-              ? "Encryption enabled -- click to disable"
-              : "Encryption disabled -- click to enable"}
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors text-[11px] font-medium",
-              encryptionEnabled && canEncrypt
-                ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
-                : "bg-muted border-border text-muted-foreground",
-              canEncrypt
-                ? "hover:bg-accent/50 cursor-pointer"
-                : "opacity-50 cursor-not-allowed",
-            )}
-          >
-            {encryptionEnabled && canEncrypt
-              ? <Lock className="w-3.5 h-3.5" />
-              : <LockOpen className="w-3.5 h-3.5" />}
-            {encryptionEnabled && canEncrypt ? "Encrypted" : "Unencrypted"}
-          </button>
+interface SurfaceProps {
+  rig: BackendClient | null;
+  identity: ReturnType<typeof useAppStore.getState>["identity"];
+  identityHint: string | null;
+  addOutput: ReturnType<typeof useAppStore.getState>["addEditorOutput"];
+  setLastResolvedUri: ReturnType<
+    typeof useAppStore.getState
+  >["setEditorLastResolvedUri"];
+  lastResolvedUri: string | null;
+  outputs: ReturnType<typeof useAppStore.getState>["editorOutputs"];
+  mode: "text" | "file";
+}
+
+function Surface(props: SurfaceProps) {
+  const { rig, identity, identityHint, mode } = props;
+  const [uriTemplate, setUriTemplate] = useState("");
+  const [textPayload, setTextPayload] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [encryptToPubkey, setEncryptToPubkey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const tokens = findTokens(uriTemplate);
+  const knownInTemplate = tokens.filter((t) => knownTokens().includes(t));
+  const needsIdentity = knownInTemplate.includes("account") ||
+    knownInTemplate.includes("signature");
+  const identityMissing = needsIdentity && !identity;
+
+  const canSubmit = !busy &&
+    !!rig &&
+    uriTemplate.trim().length > 0 &&
+    !identityMissing &&
+    (mode === "text" ? textPayload.trim().length > 0 : file !== null);
+
+  const handlePreview = async () => {
+    setError(null);
+    if (!uriTemplate.trim()) return;
+    try {
+      // Preview uses placeholder content (real hash/signature only computed at submit)
+      const placeholderContent = mode === "text"
+        ? safeParse(textPayload)
+        : { _preview: file?.name ?? "" };
+      const resolved = await resolveUriTemplate(uriTemplate, {
+        identity,
+        content: placeholderContent,
+      });
+      setPreviewUri(resolved);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!rig) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const recipient = encryptToPubkey.trim() || undefined;
+
+      if (mode === "text") {
+        const parsed = safeParse(textPayload);
+        const result = await writePlain({
+          client: rig,
+          identity,
+          uriTemplate,
+          payload: parsed,
+          encryptToPublicKey: recipient,
+        });
+        props.setLastResolvedUri(result.resolvedUri);
+        props.addOutput({
+          uri: result.resolvedUri,
+          data: result.content,
+          accepted: result.accepted,
+          error: result.error,
+        });
+        if (!result.accepted) setError(result.error || "Write rejected");
+      } else if (file) {
+        const result = await writeFile({
+          client: rig,
+          identity,
+          uriTemplate,
+          file,
+          encryptToPublicKey: recipient,
+        });
+        props.setLastResolvedUri(result.resolvedUri);
+        props.addOutput({
+          uri: result.resolvedUri,
+          data: { fileName: result.fileName, size: result.fileSize },
+          accepted: result.accepted,
+          error: result.error,
+        });
+        if (!result.accepted) setError(result.error || "Write rejected");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      <header className="px-6 py-4 border-b border-border/40">
+        <div className="flex items-center gap-3">
+          {mode === "text"
+            ? <FileText className="h-5 w-5 text-muted-foreground" />
+            : <Upload className="h-5 w-5 text-muted-foreground" />}
+          <div>
+            <h1 className="text-lg font-semibold">
+              Editor — {mode === "text" ? "Text" : "File"}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              URI template + payload, sent through the active rig.
+              Protocol-specific signing is provided by plugins.
+            </p>
+          </div>
         </div>
+        <IdentityBanner identity={identity} hint={identityHint} />
+      </header>
 
-        {/* Title input */}
-        <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-            Title
-          </label>
+      <div className="flex-1 overflow-auto custom-scrollbar p-6 space-y-6 max-w-4xl">
+        <Field
+          label="URI template"
+          hint={`Tokens: ${knownTokens().map((t) => `:${t}`).join(", ")}`}
+        >
           <input
             type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Document title"
-            className={cn(
-              "w-full px-3 py-1.5 text-sm rounded border border-border bg-background",
-              "focus:outline-none focus:ring-1 focus:ring-primary/50",
-              "placeholder:text-muted-foreground/50",
-            )}
+            value={uriTemplate}
+            onChange={(e) => setUriTemplate(e.target.value)}
+            placeholder={`mutable://accounts/${TEMPLATE_PLACEHOLDER}/note`}
+            className="w-full font-mono text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
-        </div>
+          {tokens.length > 0 && (
+            <TokenChips tokens={tokens} known={knownTokens()} />
+          )}
+        </Field>
 
-        {/* Body textarea */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-            Content
-          </label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Start writing..."
-            className={cn(
-              "flex-1 min-h-[200px] px-3 py-2 text-sm rounded border bg-background resize-none",
-              "focus:outline-none focus:ring-1 focus:ring-primary/50",
-              "placeholder:text-muted-foreground/50",
-              encryptionEnabled && canEncrypt
-                ? "border-amber-500/30"
-                : "border-border",
+        {mode === "text" && (
+          <Field
+            label="Payload (JSON or plain text)"
+            hint="JSON-parsed when valid; sent as-is otherwise."
+          >
+            <textarea
+              value={textPayload}
+              onChange={(e) => setTextPayload(e.target.value)}
+              rows={10}
+              placeholder='{"hello": "world"}'
+              className="w-full font-mono text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </Field>
+        )}
+
+        {mode === "file" && (
+          <Field label="File" hint="Sent as { type, name, size, data }.">
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="block text-sm"
+            />
+            {file && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {file.name} · {formatBytes(file.size)} · {file.type || "—"}
+              </p>
             )}
-          />
-        </div>
+          </Field>
+        )}
 
-        {/* Save button + status */}
+        <Field
+          label="Encrypt to recipient pubkey (optional)"
+          hint="X25519 public key hex. Leave empty for plaintext."
+        >
+          <input
+            type="text"
+            value={encryptToPubkey}
+            onChange={(e) => setEncryptToPubkey(e.target.value)}
+            placeholder="04ab…"
+            className="w-full font-mono text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          {encryptToPubkey.trim() && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+              <Lock className="h-3 w-3" /> content will be encrypted before send
+            </p>
+          )}
+        </Field>
+
         <div className="flex items-center gap-3">
           <button
-            onClick={handleSave}
-            disabled={saving || !body.trim() || !activeBackend}
+            onClick={handlePreview}
+            disabled={!uriTemplate.trim() || identityMissing}
+            className="px-3 py-2 text-sm border border-border rounded-md hover:bg-foreground/5 disabled:opacity-40"
+          >
+            Preview URI
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded",
-              "bg-primary text-primary-foreground",
-              "hover:bg-primary/90 transition-colors",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2",
+              canSubmit
+                ? "bg-primary text-primary-foreground hover:opacity-90"
+                : "bg-muted text-muted-foreground cursor-not-allowed",
             )}
           >
-            {saving
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <Save className="w-4 h-4" />}
-            {saving ? "Saving..." : "Save"}
+            <Send className="h-4 w-4" /> {busy ? "Sending…" : "Send"}
           </button>
-
-          {!activeBackend && (
-            <span className="text-xs text-muted-foreground">
-              No backend connected
-            </span>
-          )}
-
-          {status && (
-            <div className="flex items-center gap-1.5 text-xs">
-              {status.ok
-                ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                : <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
-              <span
-                className={status.ok
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-red-600 dark:text-red-400"}
-              >
-                {status.message}
-              </span>
-            </div>
-          )}
         </div>
+
+        {previewUri && (
+          <Notice tone="info" icon={<Info className="h-4 w-4" />}>
+            <span className="font-mono text-xs break-all">{previewUri}</span>
+          </Notice>
+        )}
+
+        {error && (
+          <Notice tone="error" icon={<AlertCircle className="h-4 w-4" />}>
+            {error}
+          </Notice>
+        )}
+
+        {props.lastResolvedUri && !error && (
+          <Notice tone="success" icon={<CheckCircle2 className="h-4 w-4" />}>
+            Last sent: <span className="font-mono text-xs break-all">{props.lastResolvedUri}</span>
+          </Notice>
+        )}
+
+        {props.outputs.length > 0 && (
+          <section className="pt-4 border-t border-border/40">
+            <h2 className="text-sm font-semibold mb-2">Recent</h2>
+            <ul className="space-y-2">
+              {props.outputs.slice(0, 10).map((o) => (
+                <li
+                  key={o.id}
+                  className="text-xs font-mono p-2 rounded bg-foreground/5 break-all"
+                >
+                  <span
+                    className={cn(
+                      "inline-block w-2 h-2 rounded-full mr-2 align-middle",
+                      o.accepted ? "bg-green-500" : "bg-red-500",
+                    )}
+                  />
+                  {o.uri}
+                  {o.error && (
+                    <span className="text-red-500 ml-2">— {o.error}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
   );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium">{label}</label>
+      {children}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+function TokenChips({ tokens, known }: { tokens: string[]; known: string[] }) {
+  const seen = new Set<string>();
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
+      {tokens.map((t, i) => {
+        const isKnown = known.includes(t);
+        const key = `${t}-${i}`;
+        if (seen.has(t)) return null;
+        seen.add(t);
+        return (
+          <span
+            key={key}
+            className={cn(
+              "px-2 py-0.5 rounded text-xs font-mono",
+              isKnown
+                ? "bg-primary/10 text-primary"
+                : "bg-muted text-muted-foreground",
+            )}
+            title={isKnown ? "Built-in or registered token" : "Unknown token (passed through unchanged)"}
+          >
+            :{t}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function IdentityBanner({
+  identity,
+  hint,
+}: {
+  identity: ReturnType<typeof useAppStore.getState>["identity"];
+  hint: string | null;
+}) {
+  if (!identity) {
+    return (
+      <p className="mt-2 text-xs text-muted-foreground">
+        No active identity — `:account` and `:signature` will fail. Pick an
+        account from the header.
+      </p>
+    );
+  }
+  return (
+    <p className="mt-2 text-xs text-muted-foreground font-mono break-all">
+      {hint && <span className="text-foreground mr-2">{hint}</span>}
+      {identity.pubkey.slice(0, 16)}…{identity.pubkey.slice(-8)}
+    </p>
+  );
+}
+
+function Notice({
+  tone,
+  icon,
+  children,
+}: {
+  tone: "info" | "success" | "error";
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const colorClass = tone === "success"
+    ? "border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400"
+    : tone === "error"
+    ? "border-red-500/30 bg-red-500/5 text-red-700 dark:text-red-400"
+    : "border-border bg-foreground/5";
+  return (
+    <div
+      className={cn("flex items-start gap-2 px-3 py-2 rounded-md border", colorClass)}
+    >
+      {icon}
+      <div className="flex-1 text-sm">{children}</div>
+    </div>
+  );
+}
+
+function safeParse(input: string): unknown {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }

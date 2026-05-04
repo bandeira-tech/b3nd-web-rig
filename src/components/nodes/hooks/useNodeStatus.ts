@@ -18,7 +18,7 @@ export function useNodeStatusPolling(intervalMs = 15000) {
 
   useEffect(() => {
     const activeBackend = backends.find((b) => b.id === activeBackendId);
-    if (!activeBackend?.adapter || activeBackend.type !== "http") return;
+    if (!activeBackend?.adapter || activeBackend.adapter.type !== "http") return;
 
     const adapter = activeBackend.adapter as HttpAdapter;
 

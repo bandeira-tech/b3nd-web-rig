@@ -2,18 +2,10 @@ import type { ComponentType } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { ExplorerLeftSlot } from "./slots/ExplorerLeftSlot";
 import { ExplorerLayoutSlot } from "./slots/ExplorerLayoutSlot";
-import { WriterLeftSlot } from "./slots/WriterLeftSlot";
-import { WriterLayoutSlot } from "./slots/WriterLayoutSlot";
-import { DashboardLeftSlot } from "./slots/DashboardLeftSlot";
-import { DashboardLayoutSlot } from "./slots/DashboardLayoutSlot";
+import { EditorLeftSlot } from "./slots/EditorLeftSlot";
+import { EditorLayoutSlot } from "./slots/EditorLayoutSlot";
 import { NodesLeftSlot } from "../nodes/NodesLeftSlot";
 import { NodesLayoutSlot } from "../nodes/NodesLayoutSlot";
-import { LearnLeftSlot } from "../learn/LearnLeftSlot";
-import { LearnLayoutSlot } from "../learn/LearnLayoutSlot";
-import { ApiDocsLeftSlot } from "../api-docs/ApiDocsLeftSlot";
-import { ApiDocsLayoutSlot } from "../api-docs/ApiDocsLayoutSlot";
-import { EditorLeftSlotConnected } from "../editor/EditorLayoutSlot";
-import { EditorMainSlotConnected } from "../editor/EditorLayoutSlot";
 import { SettingsLayoutSlot } from "./slots/SettingsLayoutSlot";
 import { AccountsLayoutSlot } from "./slots/AccountsLayoutSlot";
 import { SimpleLeftSlot } from "./slots/SimpleLeftSlot";
@@ -23,12 +15,8 @@ type LayoutSlotKey =
   | "settings"
   | "accounts"
   | "editor"
-  | "writer"
   | "explorer"
-  | "dashboard"
-  | "nodes"
-  | "learn"
-  | "api-docs";
+  | "nodes";
 
 type LayoutSlot = {
   Left: ComponentType;
@@ -48,13 +36,8 @@ const layoutSlots: Record<LayoutSlotKey, LayoutSlot> = {
     rightPanelToggleVisible: () => true,
   },
   editor: {
-    Left: EditorLeftSlotConnected,
-    Main: EditorMainSlotConnected,
-    rightPanelToggleVisible: () => false,
-  },
-  writer: {
-    Left: WriterLeftSlot,
-    Main: WriterLayoutSlot,
+    Left: EditorLeftSlot,
+    Main: EditorLayoutSlot,
     rightPanelToggleVisible: () => true,
   },
   explorer: {
@@ -62,25 +45,10 @@ const layoutSlots: Record<LayoutSlotKey, LayoutSlot> = {
     Main: ExplorerLayoutSlot,
     rightPanelToggleVisible: ({ mode }) => mode === "filesystem",
   },
-  dashboard: {
-    Left: DashboardLeftSlot,
-    Main: DashboardLayoutSlot,
-    rightPanelToggleVisible: () => false,
-  },
   nodes: {
     Left: NodesLeftSlot,
     Main: NodesLayoutSlot,
     rightPanelToggleVisible: () => true,
-  },
-  learn: {
-    Left: LearnLeftSlot,
-    Main: LearnLayoutSlot,
-    rightPanelToggleVisible: () => false,
-  },
-  "api-docs": {
-    Left: ApiDocsLeftSlot,
-    Main: ApiDocsLayoutSlot,
-    rightPanelToggleVisible: () => false,
   },
 };
 
@@ -92,12 +60,8 @@ export function useLayoutSlots() {
   const slotKey: LayoutSlotKey = (() => {
     if (mainView === "settings") return "settings";
     if (mainView === "accounts") return "accounts";
-    if (activeApp === "api-docs") return "api-docs";
-    if (activeApp === "learn") return "learn";
     if (activeApp === "nodes") return "nodes";
-    if (activeApp === "dashboard") return "dashboard";
     if (activeApp === "editor") return "editor";
-    if (activeApp === "writer") return "writer";
     if (activeApp === "explorer") return "explorer";
     throw new Error("Unsupported layout slot configuration");
   })();

@@ -97,13 +97,9 @@ function App() {
       <Router>
         <div className="min-h-screen bg-background text-foreground">
           <Routes>
-            <Route path="/dashboard/*" element={<AppLayout />} />
-            <Route path="/api-docs/*" element={<AppLayout />} />
-            <Route path="/learn/*" element={<AppLayout />} />
             <Route path="/nodes/*" element={<AppLayout />} />
             <Route path="/explorer/*" element={<AppLayout />} />
             <Route path="/editor/*" element={<AppLayout />} />
-            <Route path="/writer/*" element={<AppLayout />} />
             <Route path="/accounts" element={<AppLayout />} />
             <Route path="/settings" element={<AppLayout />} />
             <Route

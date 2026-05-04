@@ -2,14 +2,10 @@
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import {
-  Activity,
-  BookOpen,
-  Code2,
   Compass,
   FileEdit,
   Monitor,
   Moon,
-  PenSquare,
   Server,
   Settings,
   Sun,
@@ -18,14 +14,10 @@ import {
 import {
   cn,
   RIG_ACCOUNTS_PATH,
-  RIG_API_DOCS_PATH,
-  RIG_DASHBOARD_PATH,
   RIG_EDITOR_BASE_PATH,
   RIG_EXPLORER_BASE_PATH,
-  RIG_LEARN_PATH,
   RIG_NODES_PATH,
   RIG_SETTINGS_PATH,
-  RIG_WRITER_BASE_PATH,
 } from "../../utils";
 import type { ReactNode } from "react";
 
@@ -91,43 +83,11 @@ export function BrandHeader() {
           }}
         />
         <AppSwitchButton
-          active={activeApp === "writer"}
-          label="Writer"
-          icon={<PenSquare className="h-4 w-4" />}
-          onClick={() => {
-            navigate(RIG_WRITER_BASE_PATH);
-          }}
-        />
-        <AppSwitchButton
-          active={activeApp === "dashboard"}
-          label="Dashboard"
-          icon={<Activity className="h-4 w-4" />}
-          onClick={() => {
-            navigate(RIG_DASHBOARD_PATH);
-          }}
-        />
-        <AppSwitchButton
           active={activeApp === "nodes"}
           label="Nodes"
           icon={<Server className="h-4 w-4" />}
           onClick={() => {
             navigate(RIG_NODES_PATH);
-          }}
-        />
-        <AppSwitchButton
-          active={activeApp === "learn"}
-          label="Learn"
-          icon={<BookOpen className="h-4 w-4" />}
-          onClick={() => {
-            navigate(RIG_LEARN_PATH);
-          }}
-        />
-        <AppSwitchButton
-          active={activeApp === "api-docs"}
-          label="API"
-          icon={<Code2 className="h-4 w-4" />}
-          onClick={() => {
-            navigate(RIG_API_DOCS_PATH);
           }}
         />
       </div>

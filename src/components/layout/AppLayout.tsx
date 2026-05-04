@@ -8,7 +8,7 @@ import { BottomPanel } from "./BottomPanel";
 import { BrandFooter } from "./BrandFooter";
 import { cn, joinPath, sanitizePath } from "../../utils";
 import { useLayoutSlots } from "./useLayoutSlots";
-import type { ExplorerSection, WriterSection } from "../../types";
+import type { EditorSection, ExplorerSection } from "../../types";
 
 export function AppLayout() {
   const {
@@ -22,7 +22,7 @@ export function AppLayout() {
     activeApp,
     setActiveApp,
     setMainView,
-    setWriterSection,
+    setEditorSection,
     ensureRightPanelOpen,
     setPanelOpen,
     setExplorerSection,
@@ -71,16 +71,6 @@ export function AppLayout() {
   useEffect(() => {
     const relativePath = location.pathname;
 
-    if (relativePath.startsWith("/api-docs")) {
-      if (activeApp !== "api-docs") setActiveApp("api-docs");
-      if (mainView !== "content") setMainView("content");
-      return;
-    }
-    if (relativePath.startsWith("/learn")) {
-      if (activeApp !== "learn") setActiveApp("learn");
-      if (mainView !== "content") setMainView("content");
-      return;
-    }
     if (relativePath.startsWith("/nodes")) {
       if (activeApp !== "nodes") setActiveApp("nodes");
       if (mainView !== "content") setMainView("content");
@@ -89,31 +79,10 @@ export function AppLayout() {
     if (relativePath.startsWith("/editor")) {
       if (activeApp !== "editor") setActiveApp("editor");
       if (mainView !== "content") setMainView("content");
-      return;
-    }
-    if (relativePath.startsWith("/dashboard")) {
-      if (activeApp !== "dashboard") setActiveApp("dashboard");
-      if (mainView !== "content") setMainView("content");
-      return;
-    }
-    if (relativePath.startsWith("/writer")) {
-      if (activeApp !== "writer") setActiveApp("writer");
-      if (mainView !== "content") setMainView("content");
-      const section = (relativePath.replace(/^\/writer\/?/, "") ||
-        "backend") as WriterSection;
-      const allowed: WriterSection[] = [
-        "backend",
-        "auth",
-        "actions",
-        "configuration",
-        "schema",
-        "shareable",
-      ];
-      if (allowed.includes(section)) {
-        setWriterSection(section);
-      } else {
-        setWriterSection("backend");
-      }
+      const section = (relativePath.replace(/^\/editor\/?/, "") ||
+        "text") as EditorSection;
+      const allowed: EditorSection[] = ["text", "file"];
+      setEditorSection(allowed.includes(section) ? section : "text");
       return;
     }
     if (relativePath.startsWith("/accounts")) {
@@ -171,7 +140,7 @@ export function AppLayout() {
     setActiveApp,
     setMainView,
     mainView,
-    setWriterSection,
+    setEditorSection,
     ensureRightPanelOpen,
     setExplorerSection,
     setExplorerAccountKey,

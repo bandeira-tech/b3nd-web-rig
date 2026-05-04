@@ -19,7 +19,6 @@ import {
 } from "./stores/nodesStore";
 import { useAppStore } from "../../stores/appStore";
 import { ConfigEditor } from "./ConfigEditor";
-import type { ManagedKeyAccount } from "../../types";
 
 interface Props {
   entry: NetworkNodeEntry;
@@ -289,12 +288,8 @@ function SetupPanel({ entry }: { entry: NetworkNodeEntry }) {
   const activeBackendId = useAppStore((s) => s.activeBackendId);
 
   const account = accounts.find((a) => a.id === activeAccountId);
-  const operatorKey = account && account.type !== "application-user"
-    ? (account as ManagedKeyAccount).pubkey
-    : "";
-  const operatorEncPubKey = account && account.type !== "application-user"
-    ? (account as ManagedKeyAccount).encryptionPubkey
-    : "";
+  const operatorKey = account?.pubkey || "";
+  const operatorEncPubKey = account?.encryptionPubkey || "";
   const activeBackend = backends.find((b) => b.id === activeBackendId);
   const backendUrl = activeBackend?.adapter.baseUrl || "http://localhost:8842";
 
