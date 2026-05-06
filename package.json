@@ -1,6 +1,6 @@
 {
   "name": "@bandeira-tech/b3nd-web-rig",
-  "private": true,
+  "private": false,
   "version": "0.1.0",
   "description": "B3nd web rig — React/Vite data explorer + dashboard for B3nd nodes",
   "type": "module",
