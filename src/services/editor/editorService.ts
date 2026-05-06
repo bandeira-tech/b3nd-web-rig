@@ -1,6 +1,6 @@
 import { Identity } from "@bandeira-tech/b3nd-core/identity";
 import type { ExportedIdentity } from "@bandeira-tech/b3nd-core/identity";
-import * as encrypt from "@bandeira-tech/b3nd-canon/encrypt";
+import * as encrypt from "@bandeira-tech/b3nd-core/encrypt";
 import type { ReceiveResult } from "@bandeira-tech/b3nd-core/types";
 import type { KeyBundle } from "../../types";
 import { resolveUriTemplate } from "./uriTemplate";
