@@ -27,16 +27,6 @@ function App() {
     useAppStore();
   const [isHydrating, setIsHydrating] = useState(true);
 
-  console.log(
-    "[App] Render. backendsReady:",
-    backendsReady,
-    "backends.length:",
-    backends.length,
-    "isHydrating:",
-    isHydrating,
-  );
-
-  // Initialize keyboard shortcuts
   useKeyboardShortcuts();
 
   // Handle system theme changes
@@ -60,16 +50,7 @@ function App() {
 
   // Wait for store hydration
   useEffect(() => {
-    console.log(
-      "[App:useEffect] backendsReady:",
-      backendsReady,
-      "backends.length:",
-      backends.length,
-    );
-    if (backendsReady) {
-      console.log("[App:useEffect] Hydration complete!");
-      setIsHydrating(false);
-    }
+    if (backendsReady) setIsHydrating(false);
   }, [backendsReady, backends.length]);
 
   // Ensure endpoints are loaded (especially after storage key changes)
