@@ -93,6 +93,19 @@ async function loadAllEndpoints(): Promise<{
   return { backends, defaults: config.defaults || {} };
 }
 
+/**
+ * Extract the schema-comparable prefix of a URI — protocol://hostname,
+ * matching the shape that Rig.status().schema reports.
+ */
+function extractSchemaPrefix(uri: string): string {
+  try {
+    const url = new URL(uri);
+    return `${url.protocol}//${url.hostname}`;
+  } catch {
+    return uri;
+  }
+}
+
 /** Create a BackendConfig backed by a Rig instance. */
 async function createBackendFromUrl(
   id: string,
@@ -678,6 +691,20 @@ export const useAppStore = create<AppStore>()(
               ...state.editorOutputs,
             ].slice(0, 200),
           }));
+          // Refresh schemas when a write touches a prefix the rig hasn't
+          // reported yet — MemoryStore (and other lazy backends) only list a
+          // prefix in status().schema after it's been written to. Without
+          // this the Explorer index stays empty until the next manual reload.
+          if (output.accepted) {
+            const state = get();
+            const prefix = extractSchemaPrefix(output.uri);
+            const known = Object.values(state.schemas)
+              .flat()
+              .some((u) => u === prefix || u.startsWith(prefix));
+            if (!known) {
+              void state.loadSchemas();
+            }
+          }
         },
 
         loadEndpoints: async () => {
