@@ -1,11 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import {
-  connection,
-  createClientFromUrl,
-  Rig,
-} from "@bandeira-tech/b3nd-core/rig";
+import { connection, Rig } from "@bandeira-tech/b3nd-core/rig";
 import { Identity } from "@bandeira-tech/b3nd-core/identity";
+import { clientForBaseUrl } from "../services/client";
 import {
   migrateKeyBundle,
   restoreIdentity,
@@ -113,8 +110,8 @@ async function createBackendFromUrl(
   baseUrl: string,
   isActive: boolean,
 ): Promise<{ backend: BackendConfig; rig: Rig }> {
-  const client = await createClientFromUrl(baseUrl);
-  const conn = connection(client, ["*"]);
+  const client = await clientForBaseUrl(baseUrl);
+  const conn = connection(client, ["**"]);
   const rig = new Rig({
     routes: {
       receive: [conn],
@@ -270,8 +267,8 @@ export const useAppStore = create<AppStore>()(
           const baseUrl = backend.adapter.baseUrl || "";
           let rig: Rig | null = null;
           try {
-            const newClient = await createClientFromUrl(baseUrl);
-            const conn = connection(newClient, ["*"]);
+            const newClient = await clientForBaseUrl(baseUrl);
+            const conn = connection(newClient, ["**"]);
             rig = new Rig({
               routes: {
                 receive: [conn],
@@ -1097,3 +1094,10 @@ export const useActiveBackend = () => {
   const { backends, activeBackendId } = useAppStore();
   return backends.find((b) => b.id === activeBackendId) || null;
 };
+
+// E2E test hook: lets Playwright drive the same Rig instance the UI uses,
+// for seeding data and asserting state without round-tripping through the DOM.
+if (typeof window !== "undefined") {
+  (window as unknown as { __b3ndStore: typeof useAppStore }).__b3ndStore =
+    useAppStore;
+}

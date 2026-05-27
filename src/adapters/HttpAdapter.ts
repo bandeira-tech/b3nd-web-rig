@@ -5,7 +5,7 @@ import type {
   SearchFilters,
   SearchResult,
 } from "../types";
-import type { StatusResult } from "@bandeira-tech/b3nd-core/types";
+import type { Output, StatusResult } from "@bandeira-tech/b3nd-core/types";
 
 /**
  * Media-level adapter that translates between Explorer UI paths
@@ -13,11 +13,7 @@ import type { StatusResult } from "@bandeira-tech/b3nd-core/types";
  */
 
 interface ClientLike {
-  read<T = unknown>(
-    uris: string | string[],
-  ): Promise<
-    Array<{ success: boolean; record?: { data: T }; error?: string }>
-  >;
+  read<T = unknown>(locators: string[]): Promise<Output<T>[]>;
   status(): Promise<StatusResult>;
 }
 
@@ -54,18 +50,16 @@ export class HttpAdapter implements BackendAdapter {
     if (!listUri.endsWith("://") && !listUri.endsWith("/")) {
       listUri = listUri + "/";
     }
-    const results = await this.client.read(listUri);
+    const results = await this.client.read([listUri]);
     const result = results[0];
 
-    if (!result?.success) {
-      throw new Error(
-        `Failed to list ${path}: ${result?.error ?? "no result"}`,
-      );
+    if (!result) {
+      throw new Error(`Failed to list ${path}: no result`);
     }
 
-    const data = result.record?.data;
+    const [, payload] = result;
     const items: Array<{ uri: string; type: "file" | "directory" }> =
-      Array.isArray(data) ? data : [];
+      Array.isArray(payload) ? payload : [];
     return {
       data: items.map((item) => ({
         path: this.uriToPath(item.uri),
@@ -82,13 +76,15 @@ export class HttpAdapter implements BackendAdapter {
 
   async readRecord(path: string): Promise<{ data: unknown }> {
     const uri = this.pathToUri(path);
-    const results = await this.client.read(uri);
+    const results = await this.client.read([uri]);
     const result = results[0];
 
-    if (!result?.success || !result.record) {
+    if (!result) throw new Error(`Record not found: ${path}`);
+    const [, payload] = result;
+    if (payload === undefined || payload === null) {
       throw new Error(`Record not found: ${path}`);
     }
-    return result.record;
+    return { data: payload };
   }
 
   searchPaths(

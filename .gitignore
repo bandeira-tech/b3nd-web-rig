@@ -34,3 +34,8 @@ public/dashboard/test-results.json
 
 # Playwright MCP session artifacts
 .playwright-mcp/
+
+# Playwright test outputs
+/test-results/
+/playwright-report/
+/playwright/.cache/

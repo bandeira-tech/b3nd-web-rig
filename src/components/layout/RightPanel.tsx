@@ -11,11 +11,8 @@ import {
 } from "lucide-react";
 import { cn } from "../../utils";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
-import {
-  connection,
-  createClientFromUrl,
-  Rig,
-} from "@bandeira-tech/b3nd-core/rig";
+import { connection, Rig } from "@bandeira-tech/b3nd-core/rig";
+import { clientForBaseUrl } from "../../services/client";
 import type { BackendConfig } from "../../types";
 
 export function RightPanel() {
@@ -62,11 +59,11 @@ function BackendManager() {
     e.preventDefault();
     if (!formData.name.trim() || !formData.baseUrl.trim()) return;
 
-    const client = await createClientFromUrl(formData.baseUrl);
+    const client = await clientForBaseUrl(formData.baseUrl);
     const rig = new Rig({
       routes: {
-        receive: [connection(client, ["*"])],
-        read: [connection(client, ["*"])],
+        receive: [connection(client, ["**"])],
+        read: [connection(client, ["**"])],
       },
     });
     await addBackend({
