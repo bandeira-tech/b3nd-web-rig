@@ -12,7 +12,7 @@ import {
 import { cn } from "../../utils";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
 import { connection, Rig } from "@jsr/bandeira-tech__b3nd-core/rig";
-import { HttpClient } from "@jsr/bandeira-tech__b3nd-move/http/client";
+import { clientForBaseUrl } from "../../services/client";
 import type { BackendConfig } from "../../types";
 
 export function RightPanel() {
@@ -59,7 +59,7 @@ function BackendManager() {
     e.preventDefault();
     if (!formData.name.trim() || !formData.baseUrl.trim()) return;
 
-    const client = new HttpClient({ url: formData.baseUrl });
+    const client = await clientForBaseUrl(formData.baseUrl);
     const rig = new Rig({
       routes: {
         receive: [connection(client, ["**"])],

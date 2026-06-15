@@ -34,7 +34,11 @@ public/dashboard/test-results.json
 
 # Playwright MCP session artifacts
 .playwright-mcp/
-test-results/
+
+# Playwright test outputs
+/test-results/
+/playwright-report/
+/playwright/.cache/
 
 # Per-machine plugin/claude settings
 .claude/

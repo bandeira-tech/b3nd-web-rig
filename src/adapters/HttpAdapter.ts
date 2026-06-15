@@ -123,6 +123,8 @@ export class HttpAdapter implements BackendAdapter {
 
   /** Build a direct HTTP API read URL for a given explorer path. */
   getReadUrl(path: string): string {
+    // Root has no URI — render the schema-index page instead of throwing.
+    if (path === "/" || path === "") return this.baseUrl;
     const uri = this.pathToUri(path);
     const url = new URL(uri);
     const protocol = url.protocol.replace(":", "");

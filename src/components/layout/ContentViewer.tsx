@@ -136,7 +136,10 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
     );
   }
 
-  if (record) {
+  // Stale-state guard: a navigation back to '/' can render once with the
+  // previous record still set before the effect clears it. Don't ask the
+  // adapter to build a URL for the root — it has no URI.
+  if (record && path !== "/" && path !== "") {
     const readUrl = activeBackend?.adapter instanceof HttpAdapter
       ? activeBackend.adapter.getReadUrl(path)
       : undefined;

@@ -9,10 +9,18 @@ import { resolveUriTemplate } from "./uriTemplate";
  * Minimal node interface needed by the editor — satisfied by the Rig
  * (which returns an `OperationHandle`, a `PromiseLike<ReceiveResult[]>`)
  * and any other `ProtocolInterfaceNode` implementation.
+ *
+ * Payloads on receive must be `Uint8Array` (the move layer is opaque
+ * past the URI — the producing app encodes).
  */
 export interface BackendClient {
-  receive(msgs: [string, unknown][]): PromiseLike<ReceiveResult[]>;
+  receive(msgs: Output[]): PromiseLike<ReceiveResult[]>;
   read<T = unknown>(locators: string[]): Promise<Output<T>[]>;
+}
+
+function encodePayload(value: unknown): Uint8Array {
+  if (value instanceof Uint8Array) return value;
+  return new TextEncoder().encode(JSON.stringify(value));
 }
 
 // ── Identity helpers ──
@@ -102,7 +110,7 @@ export async function writePlain(params: PlainWriteParams): Promise<WriteResult>
     content,
   });
 
-  const [response] = await client.receive([[resolvedUri, content]]);
+  const [response] = await client.receive([[resolvedUri, encodePayload(content)]]);
   return {
     resolvedUri,
     content,
@@ -175,7 +183,7 @@ export async function writeFile(params: FileWriteParams): Promise<FileWriteResul
     content,
   });
 
-  const [response] = await client.receive([[resolvedUri, content]]);
+  const [response] = await client.receive([[resolvedUri, encodePayload(content)]]);
   return {
     resolvedUri,
     content,

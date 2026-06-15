@@ -2,8 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { connection, Rig } from "@jsr/bandeira-tech__b3nd-core/rig";
 import { Identity } from "@jsr/bandeira-tech__b3nd-core/identity";
-import { HttpClient } from "@jsr/bandeira-tech__b3nd-move/http/client";
 import { WebSocketClient } from "@jsr/bandeira-tech__b3nd-move/ws/client";
+import { clientForBaseUrl } from "../services/client";
 
 // Derive `wss://host/api/v1/ws` from an `http(s)://host` base URL.
 // Same hostname as the HTTP API — the WS endpoint is served by the
@@ -121,18 +121,22 @@ async function createBackendFromUrl(
   baseUrl: string,
   isActive: boolean,
 ): Promise<{ backend: BackendConfig; rig: Rig }> {
-  const http = new HttpClient({ url: baseUrl });
-  const ws = new WebSocketClient({
-    url: httpToWsUrl(baseUrl),
-    reconnect: { enabled: true },
-  });
+  const client = await clientForBaseUrl(baseUrl);
+  const isHttp = baseUrl.startsWith("http://") || baseUrl.startsWith("https://");
+  // Observe goes over the persistent WS so updates are live-pushed
+  // by the DO instead of polled. Only wire it when the backend is an
+  // HTTP node; `memory://` runs in-process and has no socket.
+  const ws = isHttp
+    ? new WebSocketClient({
+      url: httpToWsUrl(baseUrl),
+      reconnect: { enabled: true },
+    })
+    : null;
   const rig = new Rig({
     routes: {
-      receive: [connection(http, ["**"])],
-      read: [connection(http, ["**"])],
-      // Observe goes over the persistent WS so updates are live-pushed
-      // by the DO instead of polled.
-      observe: [connection(ws, ["**"])],
+      receive: [connection(client, ["**"])],
+      read: [connection(client, ["**"])],
+      ...(ws ? { observe: [connection(ws, ["**"])] } : {}),
     },
   });
 
@@ -283,16 +287,19 @@ export const useAppStore = create<AppStore>()(
           const baseUrl = backend.adapter.baseUrl || "";
           let rig: Rig | null = null;
           try {
-            const http = new HttpClient({ url: baseUrl });
-            const ws = new WebSocketClient({
-              url: httpToWsUrl(baseUrl),
-              reconnect: { enabled: true },
-            });
+            const client = await clientForBaseUrl(baseUrl);
+            const isHttp = baseUrl.startsWith("http://") || baseUrl.startsWith("https://");
+            const ws = isHttp
+              ? new WebSocketClient({
+                url: httpToWsUrl(baseUrl),
+                reconnect: { enabled: true },
+              })
+              : null;
             rig = new Rig({
               routes: {
-                receive: [connection(http, ["**"])],
-                read: [connection(http, ["**"])],
-                observe: [connection(ws, ["**"])],
+                receive: [connection(client, ["**"])],
+                read: [connection(client, ["**"])],
+                ...(ws ? { observe: [connection(ws, ["**"])] } : {}),
               },
             });
             (backend.adapter as HttpAdapter).setClient(rig);
@@ -1113,3 +1120,10 @@ export const useActiveBackend = () => {
   const { backends, activeBackendId } = useAppStore();
   return backends.find((b) => b.id === activeBackendId) || null;
 };
+
+// E2E test hook: lets Playwright drive the same Rig instance the UI uses,
+// for seeding data and asserting state without round-tripping through the DOM.
+if (typeof window !== "undefined") {
+  (window as unknown as { __b3ndStore: typeof useAppStore }).__b3ndStore =
+    useAppStore;
+}
