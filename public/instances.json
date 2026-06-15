@@ -1,8 +1,12 @@
 {
   "defaults": {
-    "backend": "local-api"
+    "backend": "cf-demo"
   },
   "backends": {
+    "cf-demo": {
+      "name": "cf.demo.b3nd (Cloudflare)",
+      "baseUrl": "https://cf-demo-b3nd.rafaelbandeira3.workers.dev"
+    },
     "local-api": {
       "name": "Local HTTP API",
       "baseUrl": "http://localhost:9942"

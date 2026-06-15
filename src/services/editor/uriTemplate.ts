@@ -1,5 +1,5 @@
-import type { Identity } from "@bandeira-tech/b3nd-core/identity";
-import { computeSha256 } from "@bandeira-tech/b3nd-core/hash";
+import type { Identity } from "@jsr/bandeira-tech__b3nd-core/identity";
+import { computeSha256 } from "@jsr/bandeira-tech__b3nd-core/hash";
 
 /**
  * Tokens that can appear in a URI template.

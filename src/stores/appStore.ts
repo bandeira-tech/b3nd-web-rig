@@ -1,11 +1,19 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import {
-  connection,
-  createClientFromUrl,
-  Rig,
-} from "@bandeira-tech/b3nd-core/rig";
-import { Identity } from "@bandeira-tech/b3nd-core/identity";
+import { connection, Rig } from "@jsr/bandeira-tech__b3nd-core/rig";
+import { Identity } from "@jsr/bandeira-tech__b3nd-core/identity";
+import { HttpClient } from "@jsr/bandeira-tech__b3nd-move/http/client";
+import { WebSocketClient } from "@jsr/bandeira-tech__b3nd-move/ws/client";
+
+// Derive `wss://host/api/v1/ws` from an `http(s)://host` base URL.
+// Same hostname as the HTTP API — the WS endpoint is served by the
+// same Worker, which proxies the upgrade to the DO.
+function httpToWsUrl(baseUrl: string): string {
+  const u = new URL(baseUrl);
+  u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+  u.pathname = (u.pathname.replace(/\/$/, "")) + "/api/v1/ws";
+  return u.toString();
+}
 import {
   migrateKeyBundle,
   restoreIdentity,
@@ -113,13 +121,18 @@ async function createBackendFromUrl(
   baseUrl: string,
   isActive: boolean,
 ): Promise<{ backend: BackendConfig; rig: Rig }> {
-  const client = await createClientFromUrl(baseUrl);
-  const conn = connection(client, ["*"]);
+  const http = new HttpClient({ url: baseUrl });
+  const ws = new WebSocketClient({
+    url: httpToWsUrl(baseUrl),
+    reconnect: { enabled: true },
+  });
   const rig = new Rig({
     routes: {
-      receive: [conn],
-      read: [conn],
-      observe: [conn],
+      receive: [connection(http, ["**"])],
+      read: [connection(http, ["**"])],
+      // Observe goes over the persistent WS so updates are live-pushed
+      // by the DO instead of polled.
+      observe: [connection(ws, ["**"])],
     },
   });
 
@@ -270,13 +283,16 @@ export const useAppStore = create<AppStore>()(
           const baseUrl = backend.adapter.baseUrl || "";
           let rig: Rig | null = null;
           try {
-            const newClient = await createClientFromUrl(baseUrl);
-            const conn = connection(newClient, ["*"]);
+            const http = new HttpClient({ url: baseUrl });
+            const ws = new WebSocketClient({
+              url: httpToWsUrl(baseUrl),
+              reconnect: { enabled: true },
+            });
             rig = new Rig({
               routes: {
-                receive: [conn],
-                read: [conn],
-                observe: [conn],
+                receive: [connection(http, ["**"])],
+                read: [connection(http, ["**"])],
+                observe: [connection(ws, ["**"])],
               },
             });
             (backend.adapter as HttpAdapter).setClient(rig);

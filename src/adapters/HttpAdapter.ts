@@ -5,19 +5,22 @@ import type {
   SearchFilters,
   SearchResult,
 } from "../types";
-import type { StatusResult } from "@bandeira-tech/b3nd-core/types";
+import type {
+  Output,
+  StatusResult,
+} from "@jsr/bandeira-tech__b3nd-core/types";
 
 /**
  * Media-level adapter that translates between Explorer UI paths
  * and b3nd URIs. Delegates all network operations to the provided client.
+ *
+ * The injected client satisfies `ProtocolInterfaceNode` — `read` returns
+ * one `Output<T>` (= `[uri, payload]`) per input locator. A miss is
+ * encoded as `payload == null` (the bytes-entity convention).
  */
 
 interface ClientLike {
-  read<T = unknown>(
-    uris: string | string[],
-  ): Promise<
-    Array<{ success: boolean; record?: { data: T }; error?: string }>
-  >;
+  read<T = unknown>(locators: string[]): Promise<Output<T>[]>;
   status(): Promise<StatusResult>;
 }
 
@@ -54,18 +57,23 @@ export class HttpAdapter implements BackendAdapter {
     if (!listUri.endsWith("://") && !listUri.endsWith("/")) {
       listUri = listUri + "/";
     }
-    const results = await this.client.read(listUri);
-    const result = results[0];
-
-    if (!result?.success) {
-      throw new Error(
-        `Failed to list ${path}: ${result?.error ?? "no result"}`,
-      );
-    }
-
-    const data = result.record?.data;
-    const items: Array<{ uri: string; type: "file" | "directory" }> =
-      Array.isArray(data) ? data : [];
+    const results = await this.client.read<unknown>([listUri]);
+    const tuple = results[0];
+    if (!tuple) throw new Error(`Failed to list ${path}: no result`);
+    const payload = tuple[1];
+    // `ls` payload is `Output[]` = `[childUri, childPayload][]`
+    // (or `string[]` when format=uris). Map either into nav nodes.
+    const rawItems: Array<unknown> = Array.isArray(payload) ? payload : [];
+    const items = rawItems.map((entry): { uri: string; type: "file" | "directory" } => {
+      if (Array.isArray(entry) && typeof entry[0] === "string") {
+        return { uri: entry[0], type: entry[0].endsWith("/") ? "directory" : "file" };
+      }
+      if (typeof entry === "string") {
+        return { uri: entry, type: entry.endsWith("/") ? "directory" : "file" };
+      }
+      const obj = entry as { uri?: string; type?: "file" | "directory" };
+      return { uri: obj.uri ?? "", type: obj.type ?? "file" };
+    }).filter((it) => it.uri);
     return {
       data: items.map((item) => ({
         path: this.uriToPath(item.uri),
@@ -82,13 +90,12 @@ export class HttpAdapter implements BackendAdapter {
 
   async readRecord(path: string): Promise<{ data: unknown }> {
     const uri = this.pathToUri(path);
-    const results = await this.client.read(uri);
-    const result = results[0];
-
-    if (!result?.success || !result.record) {
+    const results = await this.client.read<unknown>([uri]);
+    const tuple = results[0];
+    if (!tuple || tuple[1] == null) {
       throw new Error(`Record not found: ${path}`);
     }
-    return result.record;
+    return { data: tuple[1] };
   }
 
   searchPaths(

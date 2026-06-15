@@ -14,7 +14,7 @@ import { generateAccountIdentity } from "../../services/editor/editorService";
 import type { ManagedAccount } from "../../types";
 import { cn, generateId } from "../../utils";
 import { SectionCard } from "../common/SectionCard";
-import type { ExportedIdentity } from "@bandeira-tech/b3nd-core/identity";
+import type { ExportedIdentity } from "@jsr/bandeira-tech__b3nd-core/identity";
 
 const PRIMARY =
   "inline-flex items-center gap-2 rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";

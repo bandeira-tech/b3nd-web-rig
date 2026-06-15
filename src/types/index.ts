@@ -1,4 +1,4 @@
-import type { Identity } from "@bandeira-tech/b3nd-core/identity";
+import type { Identity } from "@jsr/bandeira-tech__b3nd-core/identity";
 
 // Navigation and UI types
 export interface NavigationNode {
@@ -124,7 +124,7 @@ export interface ManagedAccount {
   /** Encryption public key hex. */
   encryptionPubkey: string;
   /** Serialized identity for persistence (private keys included). */
-  exportedIdentity: import("@bandeira-tech/b3nd-core/identity").ExportedIdentity;
+  exportedIdentity: import("@jsr/bandeira-tech__b3nd-core/identity").ExportedIdentity;
   /**
    * @deprecated Legacy field. Use exportedIdentity + pubkey instead.
    * Present on accounts created before the migration.

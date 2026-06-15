@@ -7,7 +7,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
-import { connection, createClientFromUrl, Rig } from "@bandeira-tech/b3nd-core/rig";
+import { connection, Rig } from "@jsr/bandeira-tech__b3nd-core/rig";
+import { HttpClient } from "@jsr/bandeira-tech__b3nd-move/http/client";
 import { useAppStore } from "../../stores/appStore";
 
 export function SettingsView() {
@@ -107,9 +108,9 @@ function BackendManager() {
     if (!formData.name.trim() || !formData.baseUrl.trim()) return;
 
     // Build a placeholder rig — addBackend recreates internally with its own rig wiring.
-    const client = await createClientFromUrl(formData.baseUrl);
+    const client = new HttpClient({ url: formData.baseUrl });
     const rig = new Rig({
-      routes: { receive: [connection(client, ["*"])], read: [connection(client, ["*"])] },
+      routes: { receive: [connection(client, ["**"])], read: [connection(client, ["**"])] },
     });
     await addBackend({
       name: formData.name,

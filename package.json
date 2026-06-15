@@ -11,7 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@bandeira-tech/b3nd-core": "^0.14.0",
+    "@jsr/bandeira-tech__b3nd-core": "0.22.0",
+    "@jsr/bandeira-tech__b3nd-move": "^0.17.1",
     "@tanstack/react-query": "^5.90.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.544.0",

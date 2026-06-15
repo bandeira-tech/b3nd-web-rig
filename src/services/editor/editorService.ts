@@ -1,7 +1,7 @@
-import { Identity } from "@bandeira-tech/b3nd-core/identity";
-import type { ExportedIdentity } from "@bandeira-tech/b3nd-core/identity";
-import * as encrypt from "@bandeira-tech/b3nd-core/encrypt";
-import type { ReceiveResult } from "@bandeira-tech/b3nd-core/types";
+import { Identity } from "@jsr/bandeira-tech__b3nd-core/identity";
+import type { ExportedIdentity } from "@jsr/bandeira-tech__b3nd-core/identity";
+import * as encrypt from "@jsr/bandeira-tech__b3nd-core/encrypt";
+import type { Output, ReceiveResult } from "@jsr/bandeira-tech__b3nd-core/types";
 import type { KeyBundle } from "../../types";
 import { resolveUriTemplate } from "./uriTemplate";
 
@@ -12,11 +12,7 @@ import { resolveUriTemplate } from "./uriTemplate";
  */
 export interface BackendClient {
   receive(msgs: [string, unknown][]): PromiseLike<ReceiveResult[]>;
-  read<T = unknown>(
-    uris: string | string[],
-  ): Promise<
-    Array<{ success: boolean; record?: { data: T }; error?: string }>
-  >;
+  read<T = unknown>(locators: string[]): Promise<Output<T>[]>;
 }
 
 // ── Identity helpers ──
