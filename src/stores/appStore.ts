@@ -793,12 +793,20 @@ export const useAppStore = create<AppStore>()(
               }
             }
 
-            return {
+            const result = {
               backends: nextBackends,
               rig: state.rig || activeRig,
               activeBackendId,
               backendsReady: true,
             };
+            // First-boot seed: welcome.md + sample HTML app. Runs once
+            // per browser via a localStorage marker; failures swallowed.
+            if (result.rig) {
+              void import("../apps/firstBoot").then(({ seedFirstBoot }) => {
+                void seedFirstBoot(result.rig as never);
+              });
+            }
+            return result;
           });
         },
 

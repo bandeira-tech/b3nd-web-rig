@@ -83,6 +83,13 @@ mountable UI applications, all stored on B3nd.
   HTML at its declared URI on receiving rigs. Wired to Export /
   Import buttons in AppsBrowser. Round-trip test passes; HTML inline
   verified. ✓ shipped.
+- **Iter 12** — CI + first-boot seed. GitHub Actions workflow runs
+  `npm ci → build → playwright install → playwright test` on push to
+  main and on every PR. First-boot seed (`src/apps/firstBoot.ts`)
+  drops a welcome markdown and a sample Hello B3nd HTML app on first
+  load and publishes its descriptor to the default catalog, so a
+  fresh visitor sees something tangible from second one. Idempotent
+  via localStorage marker. ✓ shipped.
 
 ## Nudges (carry across runs)
 
