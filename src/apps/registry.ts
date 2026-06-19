@@ -1,6 +1,8 @@
 import type { AppDescriptor, BuiltinApp } from "./types";
 import { notesApp } from "./builtin/NotesApp";
 import { bookmarksApp } from "./builtin/BookmarksApp";
+import { filesApp } from "./builtin/FilesApp";
+import { inboxApp } from "./builtin/InboxApp";
 
 /**
  * Built-in apps — the React components the rig itself ships. Apps stored
@@ -19,6 +21,8 @@ function registerBuiltin(app: BuiltinApp): void {
 
 registerBuiltin(notesApp);
 registerBuiltin(bookmarksApp);
+registerBuiltin(filesApp);
+registerBuiltin(inboxApp);
 
 export function getBuiltinApp(id: string): BuiltinApp | undefined {
   return builtins.get(id);
@@ -44,5 +48,21 @@ export const defaultAppCatalog: AppDescriptor[] = [
     icon: "🔖",
     defaultBasePath: "memory://apps-data/bookmarks",
     display: { kind: "builtin", id: "builtin:bookmarks" },
+  },
+  {
+    slug: "files",
+    name: "Files",
+    description: "Drop files of any kind under your basepath. Preview, download, delete.",
+    icon: "📁",
+    defaultBasePath: "memory://apps-data/files",
+    display: { kind: "builtin", id: "builtin:files" },
+  },
+  {
+    slug: "inbox",
+    name: "Inbox",
+    description: "A timestamped log for thoughts and links — anything that can write a record.",
+    icon: "📥",
+    defaultBasePath: "memory://apps-data/inbox",
+    display: { kind: "builtin", id: "builtin:inbox" },
   },
 ];

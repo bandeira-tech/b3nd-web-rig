@@ -36,6 +36,10 @@ mountable UI applications, all stored on B3nd.
   resolves the descriptor via the catalog (not just hard-coded
   defaults), so user-published slugs can be navigated to. The catalog
   basepath persists like mount overrides. ✓ shipped.
+- **Iter 5** — Two more built-in apps: Files (drop any bytes under a
+  basepath, with the hinted-display registry powering previews) and
+  Inbox (timestamped JSON log, newest-first). Empty states made
+  testable + friendlier. Four built-ins now ship by default. ✓ shipped.
 
 ## Nudges (carry across runs)
 
