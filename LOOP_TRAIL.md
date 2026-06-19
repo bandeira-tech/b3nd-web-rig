@@ -40,6 +40,13 @@ mountable UI applications, all stored on B3nd.
   basepath, with the hinted-display registry powering previews) and
   Inbox (timestamped JSON log, newest-first). Empty states made
   testable + friendlier. Four built-ins now ship by default. ✓ shipped.
+- **Iter 6** — HTML-mount apps. `display.kind = "html"` points at an
+  HTML record in the rig; AppHost loads it into a sandboxed iframe
+  (`sandbox="allow-scripts"`, opaque origin), injects a bootstrap that
+  exposes `window.b3ndSlot.{basePath, resolve, list, read, write}` and
+  routes ops via postMessage. End-to-end round-trip test mounts a
+  seeded HTML app and verifies the iframe wrote through the bridge.
+  ✓ shipped.
 
 ## Nudges (carry across runs)
 
@@ -53,3 +60,6 @@ mountable UI applications, all stored on B3nd.
 - Controlled-input + sync click can race React batching. When tests
   flake on "form submit didn't see latest state", check the assertion
   *before* assuming a logic bug.
+- `page.goto()` reloads the SPA and wipes the in-memory rig. When a
+  test needs to seed data and then navigate, use SPA navigation
+  (`history.pushState` + `popstate` dispatch) instead.

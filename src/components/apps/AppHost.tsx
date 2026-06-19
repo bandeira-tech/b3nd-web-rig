@@ -11,6 +11,7 @@ import {
 } from "../../apps/mounts";
 import { loadCatalog } from "../../apps/catalog";
 import type { AppDescriptor } from "../../apps/types";
+import { HtmlAppMount } from "./HtmlAppMount";
 
 export function AppHost() {
   const { slug } = useParams<{ slug: string }>();
@@ -93,22 +94,6 @@ export function AppHost() {
     );
   }
 
-  if (descriptor.display.kind !== "builtin") {
-    return (
-      <div className="p-6" data-testid="app-host-unsupported">
-        HTML-mounted apps are coming in a later iteration.
-      </div>
-    );
-  }
-
-  const builtin = getBuiltinApp(descriptor.display.id);
-  if (!builtin) {
-    return (
-      <div className="p-6 text-destructive" data-testid="app-host-no-builtin">
-        Built-in "{descriptor.display.id}" not found.
-      </div>
-    );
-  }
   if (!rig) {
     return (
       <div className="p-6 text-sm text-muted-foreground">
@@ -129,7 +114,34 @@ export function AppHost() {
     );
   }
 
-  const Mount = builtin.component;
+  let body;
+  if (descriptor.display.kind === "builtin") {
+    const builtin = getBuiltinApp(descriptor.display.id);
+    if (!builtin) {
+      return (
+        <div className="p-6 text-destructive" data-testid="app-host-no-builtin">
+          Built-in "{descriptor.display.id}" not found.
+        </div>
+      );
+    }
+    const Mount = builtin.component;
+    body = <Mount descriptor={descriptor} slot={slot} />;
+  } else if (descriptor.display.kind === "html") {
+    body = (
+      <HtmlAppMount
+        htmlUri={descriptor.display.uri}
+        slot={slot}
+        backend={rig}
+      />
+    );
+  } else {
+    body = (
+      <div className="p-6 text-destructive" data-testid="app-host-unsupported">
+        Unsupported display kind.
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col" data-testid={`app-host-${slug}`}>
       <header className="px-4 py-2 border-b border-border flex items-center gap-3 bg-card">
@@ -164,9 +176,7 @@ export function AppHost() {
           </div>
         </div>
       </header>
-      <main className="flex-1 p-3 overflow-auto">
-        <Mount descriptor={descriptor} slot={slot} />
-      </main>
+      <main className="flex-1 p-3 overflow-auto">{body}</main>
     </div>
   );
 }
