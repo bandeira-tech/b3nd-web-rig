@@ -44,12 +44,17 @@ export function AppsBrowser() {
 
   return (
     <div className="p-6 space-y-6" data-testid="apps-browser">
-      <header className="space-y-1">
+      <header className="space-y-2">
         <h2 className="text-xl font-semibold">Apps</h2>
         <p className="text-sm text-muted-foreground max-w-2xl">
           Tiny UIs that read and write your data through a basepath you
-          control. The app's behaviour is the same wherever the data lives.
+          control. The app's behaviour is the same wherever the data lives —
+          memory, your own server, a friend's node.
         </p>
+        <div className="text-xs text-muted-foreground">
+          Pick a tile to mount it. You can change the basepath any time
+          (the app keeps working — its data simply lives somewhere else).
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -142,12 +147,14 @@ interface PublishFormProps {
 
 function PublishForm({ basePath, rig, onPublished, onError }: PublishFormProps) {
   const builtins = listBuiltinApps();
+  const [kind, setKind] = useState<"builtin" | "html">("builtin");
   const [slug, setSlug] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("");
   const [defaultBasePath, setDefaultBasePath] = useState("memory://my-data/");
   const [builtinId, setBuiltinId] = useState(builtins[0]?.id ?? "");
+  const [htmlBody, setHtmlBody] = useState(DEFAULT_HTML_TEMPLATE);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,18 +162,38 @@ function PublishForm({ basePath, rig, onPublished, onError }: PublishFormProps) 
       onError("No backend connected.");
       return;
     }
-    if (!slug || !name || !defaultBasePath || !builtinId) {
-      onError("slug, name, basepath, and builtin are required.");
+    if (!slug || !name || !defaultBasePath) {
+      onError("slug, name, and basepath are required.");
       return;
     }
     try {
+      let display: AppDescriptor["display"];
+      if (kind === "builtin") {
+        if (!builtinId) {
+          onError("Pick a built-in renderer.");
+          return;
+        }
+        display = { kind: "builtin", id: builtinId };
+      } else {
+        if (!htmlBody.trim()) {
+          onError("HTML body is required.");
+          return;
+        }
+        // Store HTML alongside the descriptor under the same catalog
+        // basepath so a single publish is one user gesture.
+        const htmlUri = `${basePath.replace(/\/+$/, "")}/${slug}.html`;
+        const { createRigSlot } = await import("../../apps/runtime");
+        const slot = createRigSlot(rig, basePath.replace(/\/+$/, ""));
+        await slot.write(`${slug}.html`, htmlBody);
+        display = { kind: "html", uri: htmlUri };
+      }
       await publishDescriptor(rig, {
         slug,
         name,
         description: description || undefined,
         icon: icon || undefined,
         defaultBasePath,
-        display: { kind: "builtin", id: builtinId },
+        display,
       }, basePath);
       setSlug("");
       setName("");
@@ -184,6 +211,26 @@ function PublishForm({ basePath, rig, onPublished, onError }: PublishFormProps) 
       className="grid grid-cols-1 md:grid-cols-2 gap-2 border border-border rounded-md p-3 text-sm"
       data-testid="apps-publish-form"
     >
+      <label className="flex flex-col gap-1 md:col-span-2">
+        <span className="text-xs text-muted-foreground">kind</span>
+        <div className="flex gap-1" role="radiogroup" aria-label="App kind">
+          {(["builtin", "html"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setKind(k)}
+              className={`px-2 py-1 text-xs rounded border ${
+                kind === k
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border hover:bg-accent"
+              }`}
+              data-testid={`apps-publish-kind-${k}`}
+            >
+              {k === "builtin" ? "Built-in" : "HTML"}
+            </button>
+          ))}
+        </div>
+      </label>
       <label className="flex flex-col gap-1">
         <span className="text-xs text-muted-foreground">slug</span>
         <input
@@ -237,19 +284,38 @@ function PublishForm({ basePath, rig, onPublished, onError }: PublishFormProps) 
           data-testid="apps-publish-basepath"
         />
       </label>
-      <label className="flex flex-col gap-1 md:col-span-2">
-        <span className="text-xs text-muted-foreground">render with</span>
-        <select
-          value={builtinId}
-          onChange={(e) => setBuiltinId(e.target.value)}
-          className="bg-muted/40 border border-border rounded px-2 py-1 text-xs"
-          data-testid="apps-publish-builtin"
-        >
-          {builtins.map((b) => (
-            <option key={b.id} value={b.id}>{b.label} ({b.id})</option>
-          ))}
-        </select>
-      </label>
+      {kind === "builtin"
+        ? (
+          <label className="flex flex-col gap-1 md:col-span-2">
+            <span className="text-xs text-muted-foreground">render with</span>
+            <select
+              value={builtinId}
+              onChange={(e) => setBuiltinId(e.target.value)}
+              className="bg-muted/40 border border-border rounded px-2 py-1 text-xs"
+              data-testid="apps-publish-builtin"
+            >
+              {builtins.map((b) => (
+                <option key={b.id} value={b.id}>{b.label} ({b.id})</option>
+              ))}
+            </select>
+          </label>
+        )
+        : (
+          <label className="flex flex-col gap-1 md:col-span-2">
+            <span className="text-xs text-muted-foreground">
+              HTML body — `window.b3ndSlot.{`{`}basePath,resolve,list,read,write{`}`}` is
+              available
+            </span>
+            <textarea
+              required
+              value={htmlBody}
+              onChange={(e) => setHtmlBody(e.target.value)}
+              rows={10}
+              className="bg-muted/40 border border-border rounded px-2 py-1 font-mono text-xs"
+              data-testid="apps-publish-html"
+            />
+          </label>
+        )}
       <div className="md:col-span-2 flex justify-end">
         <button
           type="submit"
@@ -262,3 +328,18 @@ function PublishForm({ basePath, rig, onPublished, onError }: PublishFormProps) 
     </form>
   );
 }
+
+const DEFAULT_HTML_TEMPLATE = `<!doctype html>
+<html>
+<head><title>my app</title></head>
+<body>
+  <h1>Hello from b3nd</h1>
+  <pre id="basepath"></pre>
+  <script>
+    (async () => {
+      const bp = await window.b3ndSlot.basePath();
+      document.getElementById('basepath').textContent = bp;
+    })();
+  </script>
+</body>
+</html>`;

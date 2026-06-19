@@ -10,6 +10,7 @@ import { SettingsLayoutSlot } from "./slots/SettingsLayoutSlot";
 import { AccountsLayoutSlot } from "./slots/AccountsLayoutSlot";
 import { SimpleLeftSlot } from "./slots/SimpleLeftSlot";
 import { AppsLayoutSlot } from "../apps/AppsLayoutSlot";
+import { AppsLeftSlot } from "../apps/AppsLeftSlot";
 import type { AppMode } from "../../types";
 
 type LayoutSlotKey =
@@ -53,7 +54,7 @@ const layoutSlots: Record<LayoutSlotKey, LayoutSlot> = {
     rightPanelToggleVisible: () => true,
   },
   apps: {
-    Left: () => <SimpleLeftSlot title="Apps" />,
+    Left: AppsLeftSlot,
     Main: AppsLayoutSlot,
     rightPanelToggleVisible: () => false,
   },

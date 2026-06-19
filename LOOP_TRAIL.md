@@ -47,6 +47,12 @@ mountable UI applications, all stored on B3nd.
   routes ops via postMessage. End-to-end round-trip test mounts a
   seeded HTML app and verifies the iframe wrote through the bridge.
   ✓ shipped.
+- **Iter 7** — UX polish: AppsLeftSlot replaces the placeholder, lists
+  every default + published app with its current mount basepath and a
+  "mounted" badge when overridden. AppsBrowser welcome copy targets
+  non-tech users. PublishForm gains an HTML kind toggle + textarea —
+  publishing an HTML app writes the body alongside the descriptor and
+  the new tile mounts an iframe immediately. ✓ shipped.
 
 ## Nudges (carry across runs)
 
