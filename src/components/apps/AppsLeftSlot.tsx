@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutGrid, RotateCcw } from "lucide-react";
+import { LayoutGrid, RotateCcw, UserCog } from "lucide-react";
 import type { AppDescriptor } from "../../apps/types";
 import { defaultAppCatalog } from "../../apps/registry";
 import { loadCatalog } from "../../apps/catalog";
 import { getMountBasePath } from "../../apps/mounts";
 import { useAppStore } from "../../stores/appStore";
 import type { SlotBackend } from "../../apps/runtime";
-import { cn } from "../../utils";
+import { cn, RIG_ACCOUNTS_PATH } from "../../utils";
 
 export function AppsLeftSlot() {
   const navigate = useNavigate();
@@ -19,6 +19,13 @@ export function AppsLeftSlot() {
     return m ? m[1] : undefined;
   }, [location.pathname]);
   const rig = useAppStore((s) => s.rig) as SlotBackend | null;
+  const activeAccount = useAppStore((s) => {
+    const id = s.activeAccountId;
+    if (!id) return null;
+    const a = s.accounts.find((x) => x.id === id);
+    if (!a) return null;
+    return { id: a.id, name: a.name, emoji: a.emoji };
+  });
   const [catalog, setCatalog] = useState<AppDescriptor[]>(defaultAppCatalog);
 
   const refresh = useCallback(async () => {
@@ -38,25 +45,61 @@ export function AppsLeftSlot() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-800 space-y-3">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => navigate("/apps")}
+            className={cn(
+              "flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground",
+              !slug && "text-foreground",
+            )}
+            data-testid="apps-left-home"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            <span>Apps</span>
+          </button>
+          <button
+            onClick={refresh}
+            title="Refresh catalog"
+            className="p-1 rounded hover:bg-accent text-muted-foreground"
+            data-testid="apps-left-refresh"
+          >
+            <RotateCcw className="h-3 w-3" />
+          </button>
+        </div>
         <button
-          onClick={() => navigate("/apps")}
-          className={cn(
-            "flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground",
-            !slug && "text-foreground",
-          )}
-          data-testid="apps-left-home"
+          onClick={() => navigate(RIG_ACCOUNTS_PATH)}
+          className="w-full flex items-center gap-2 text-left px-2 py-1.5 rounded-md border border-border hover:bg-accent"
+          data-testid="apps-left-account"
+          title="Manage accounts — your apps follow whichever is active"
         >
-          <LayoutGrid className="h-4 w-4" />
-          <span>Apps</span>
-        </button>
-        <button
-          onClick={refresh}
-          title="Refresh catalog"
-          className="p-1 rounded hover:bg-accent text-muted-foreground"
-          data-testid="apps-left-refresh"
-        >
-          <RotateCcw className="h-3 w-3" />
+          {activeAccount
+            ? (
+              <>
+                <span className="text-base leading-none" aria-hidden>
+                  {activeAccount.emoji || "👤"}
+                </span>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-xs text-muted-foreground">
+                    Active account
+                  </span>
+                  <span className="text-sm font-medium truncate">
+                    {activeAccount.name}
+                  </span>
+                </div>
+              </>
+            )
+            : (
+              <>
+                <UserCog className="h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-xs text-muted-foreground">
+                    No account
+                  </span>
+                  <span className="text-xs">Using "shared" scope</span>
+                </div>
+              </>
+            )}
         </button>
       </div>
       <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-1">

@@ -12,10 +12,18 @@ import {
 } from "../../apps/catalog";
 import { useAppStore } from "../../stores/appStore";
 import type { SlotBackend } from "../../apps/runtime";
+import { UserCog } from "lucide-react";
 
 export function AppsBrowser() {
   const navigate = useNavigate();
   const rig = useAppStore((s) => s.rig) as SlotBackend | null;
+  const activeAccount = useAppStore((s) => {
+    const id = s.activeAccountId;
+    if (!id) return null;
+    const a = s.accounts.find((x) => x.id === id);
+    if (!a) return null;
+    return { name: a.name, emoji: a.emoji };
+  });
 
   const [catalog, setCatalog] = useState<AppDescriptor[]>(defaultAppCatalog);
   const [basePath, setBasePathState] = useState<string>(getCatalogBasePath());
@@ -51,6 +59,32 @@ export function AppsBrowser() {
           control. The app's behaviour is the same wherever the data lives —
           memory, your own server, a friend's node.
         </p>
+        <div
+          className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded-md border border-border bg-muted/30"
+          data-testid="apps-browser-account"
+        >
+          {activeAccount
+            ? (
+              <>
+                <span aria-hidden>{activeAccount.emoji || "👤"}</span>
+                <span>
+                  Mounts follow{" "}
+                  <strong className="font-medium">{activeAccount.name}</strong>
+                  's data scope.
+                </span>
+              </>
+            )
+            : (
+              <>
+                <UserCog className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>
+                  No account active — apps will mount under the{" "}
+                  <code className="font-mono">shared</code>{" "}
+                  scope. Add an account to keep your data private.
+                </span>
+              </>
+            )}
+        </div>
         <div className="text-xs text-muted-foreground">
           Pick a tile to mount it. You can change the basepath any time
           (the app keeps working — its data simply lives somewhere else).

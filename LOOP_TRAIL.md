@@ -70,6 +70,12 @@ mountable UI applications, all stored on B3nd.
   that the tests used `app.goto()` post-seed, which reloads the page
   and wipes the in-memory rig; switched them to SPA navigation. The
   full suite now runs with 53 passed, 0 skipped. ✓ shipped.
+- **Iter 10** — Identity context made visible. AppsLeftSlot header
+  shows the active account (emoji + name) or a "no account, using
+  shared" fallback that doubles as a CTA to /accounts. AppsBrowser
+  welcome callout mirrors the same info next to the intro copy. Apps
+  follow whichever account is active — now the user can *see* that
+  before mounting. ✓ shipped.
 
 ## Nudges (carry across runs)
 
