@@ -76,6 +76,13 @@ mountable UI applications, all stored on B3nd.
   welcome callout mirrors the same info next to the intro copy. Apps
   follow whichever account is active — now the user can *see* that
   before mounting. ✓ shipped.
+- **Iter 11** — Catalog bundle (`src/apps/bundle.ts`).
+  `exportCatalog` produces a v1 JSON bundle of user-published apps
+  (built-in slugs skipped by default) with HTML bodies inlined when
+  reachable. `importCatalog` writes the descriptors back, and restores
+  HTML at its declared URI on receiving rigs. Wired to Export /
+  Import buttons in AppsBrowser. Round-trip test passes; HTML inline
+  verified. ✓ shipped.
 
 ## Nudges (carry across runs)
 

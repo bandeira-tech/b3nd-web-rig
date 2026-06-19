@@ -12,7 +12,13 @@ import {
 } from "../../apps/catalog";
 import { useAppStore } from "../../stores/appStore";
 import type { SlotBackend } from "../../apps/runtime";
-import { UserCog } from "lucide-react";
+import { Download, UserCog, Upload } from "lucide-react";
+import {
+  exportCatalog,
+  importCatalog,
+  isBundle,
+  type CatalogBundle,
+} from "../../apps/bundle";
 
 export function AppsBrowser() {
   const navigate = useNavigate();
@@ -28,6 +34,9 @@ export function AppsBrowser() {
   const [catalog, setCatalog] = useState<AppDescriptor[]>(defaultAppCatalog);
   const [basePath, setBasePathState] = useState<string>(getCatalogBasePath());
   const [publishing, setPublishing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importStatus, setImportStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (path: string) => {
@@ -48,6 +57,65 @@ export function AppsBrowser() {
   const handleBasePathChange = (next: string) => {
     setBasePathState(next);
     setCatalogBasePath(next);
+  };
+
+  const handleExport = async () => {
+    setError(null);
+    if (!rig) {
+      setError("No backend connected.");
+      return;
+    }
+    try {
+      const bundle = await exportCatalog(rig, basePath);
+      const json = JSON.stringify(bundle, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `b3nd-catalog-${new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleImport = async () => {
+    setError(null);
+    setImportStatus(null);
+    if (!rig) {
+      setError("No backend connected.");
+      return;
+    }
+    let bundle: CatalogBundle;
+    try {
+      const parsed = JSON.parse(importText);
+      if (!isBundle(parsed)) {
+        throw new Error("That JSON isn't a v1 catalog bundle.");
+      }
+      bundle = parsed;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      return;
+    }
+    try {
+      const result = await importCatalog(rig, basePath, bundle);
+      setImportStatus(
+        `Imported ${result.imported.length} app(s)${
+          result.skipped.length
+            ? `, skipped ${result.skipped.length}`
+            : ""
+        }.`,
+      );
+      setImportText("");
+      await refresh(basePath);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   return (
@@ -124,7 +192,57 @@ export function AppsBrowser() {
         >
           <Plus className="h-3.5 w-3.5" /> Publish
         </button>
+        <button
+          onClick={handleExport}
+          className="p-1 rounded hover:bg-accent flex items-center gap-1"
+          title="Download your catalog as a JSON bundle"
+          data-testid="apps-export"
+        >
+          <Download className="h-3.5 w-3.5" /> Export
+        </button>
+        <button
+          onClick={() => setImporting((v) => !v)}
+          className="p-1 rounded hover:bg-accent flex items-center gap-1"
+          data-testid="apps-import-toggle"
+        >
+          <Upload className="h-3.5 w-3.5" /> Import
+        </button>
       </div>
+
+      {importing && (
+        <div
+          className="border border-border rounded-md p-3 space-y-2"
+          data-testid="apps-import-form"
+        >
+          <p className="text-xs text-muted-foreground">
+            Paste a JSON bundle exported from any rig. Records are written
+            under the current catalog basepath.
+          </p>
+          <textarea
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            placeholder='{ "version": 1, "apps": [...] }'
+            rows={6}
+            className="w-full bg-muted/40 border border-border rounded px-2 py-1 font-mono text-xs"
+            data-testid="apps-import-text"
+          />
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="text-xs text-muted-foreground"
+              data-testid="apps-import-status"
+            >
+              {importStatus}
+            </span>
+            <button
+              onClick={handleImport}
+              className="px-3 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90"
+              data-testid="apps-import-submit"
+            >
+              Import
+            </button>
+          </div>
+        </div>
+      )}
 
       {publishing && (
         <PublishForm

@@ -22,6 +22,11 @@ import {
   hasPlaceholders,
   interpolateBasePath,
 } from "./apps/templates";
+import {
+  exportCatalog,
+  importCatalog,
+  isBundle,
+} from "./apps/bundle";
 
 // E2E test hooks: expose enough of the display + apps subsystems so
 // Playwright can drive them directly without mounting the entire UI.
@@ -52,6 +57,11 @@ if (typeof window !== "undefined") {
         interpolate: typeof interpolateBasePath;
         hasPlaceholders: typeof hasPlaceholders;
       };
+      bundle: {
+        export: typeof exportCatalog;
+        import: typeof importCatalog;
+        isBundle: typeof isBundle;
+      };
     };
   }).__b3ndApps = {
     createRigSlot,
@@ -74,6 +84,11 @@ if (typeof window !== "undefined") {
     templates: {
       interpolate: interpolateBasePath,
       hasPlaceholders,
+    },
+    bundle: {
+      export: exportCatalog,
+      import: importCatalog,
+      isBundle,
     },
   };
 }
