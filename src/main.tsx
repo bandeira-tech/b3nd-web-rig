@@ -18,6 +18,10 @@ import {
   publishDescriptor,
   setCatalogBasePath,
 } from "./apps/catalog";
+import {
+  hasPlaceholders,
+  interpolateBasePath,
+} from "./apps/templates";
 
 // E2E test hooks: expose enough of the display + apps subsystems so
 // Playwright can drive them directly without mounting the entire UI.
@@ -44,6 +48,10 @@ if (typeof window !== "undefined") {
         setBasePath: typeof setCatalogBasePath;
         getDefaultBasePath: typeof getDefaultCatalogBasePath;
       };
+      templates: {
+        interpolate: typeof interpolateBasePath;
+        hasPlaceholders: typeof hasPlaceholders;
+      };
     };
   }).__b3ndApps = {
     createRigSlot,
@@ -62,6 +70,10 @@ if (typeof window !== "undefined") {
       getBasePath: getCatalogBasePath,
       setBasePath: setCatalogBasePath,
       getDefaultBasePath: getDefaultCatalogBasePath,
+    },
+    templates: {
+      interpolate: interpolateBasePath,
+      hasPlaceholders,
     },
   };
 }

@@ -53,6 +53,12 @@ mountable UI applications, all stored on B3nd.
   non-tech users. PublishForm gains an HTML kind toggle + textarea —
   publishing an HTML app writes the body alongside the descriptor and
   the new tile mounts an iframe immediately. ✓ shipped.
+- **Iter 8** — Identity-aware basepath templates. `{account}`,
+  `{accountId}`, `{accountName}` placeholders with `?fallback` syntax.
+  Default catalog now uses `{account?shared}` so apps follow identity
+  out of the box. AppHost shows the resolved value next to the
+  template. Stripped the chatty `console.log` calls from ContentViewer
+  so the explorer feels less alpha-dev. ✓ shipped.
 
 ## Nudges (carry across runs)
 

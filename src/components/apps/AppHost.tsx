@@ -12,11 +12,19 @@ import {
 import { loadCatalog } from "../../apps/catalog";
 import type { AppDescriptor } from "../../apps/types";
 import { HtmlAppMount } from "./HtmlAppMount";
+import { hasPlaceholders, interpolateBasePath } from "../../apps/templates";
 
 export function AppHost() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const rig = useAppStore((s) => s.rig) as SlotBackend | null;
+  const activeAccount = useAppStore((s) => {
+    const id = s.activeAccountId;
+    if (!id) return null;
+    const account = s.accounts.find((a) => a.id === id);
+    if (!account) return null;
+    return { id: account.id, name: account.name, pubkey: account.pubkey };
+  });
 
   const [descriptor, setDescriptor] = useState<AppDescriptor | undefined>(
     undefined,
@@ -102,13 +110,16 @@ export function AppHost() {
     );
   }
 
+  const resolvedBasePath = interpolateBasePath(basePath, activeAccount);
+  const isTemplate = hasPlaceholders(basePath);
+
   let slot;
   try {
-    slot = createRigSlot(rig, basePath);
+    slot = createRigSlot(rig, resolvedBasePath);
   } catch (err) {
     return (
-      <div className="p-6 text-sm text-destructive">
-        Invalid basepath {basePath}:{" "}
+      <div className="p-6 text-sm text-destructive" data-testid="app-host-bad-basepath">
+        Invalid basepath {resolvedBasePath}:{" "}
         {err instanceof Error ? err.message : String(err)}
       </div>
     );
@@ -163,6 +174,15 @@ export function AppHost() {
               data-testid="app-host-basepath"
               aria-label="Basepath"
             />
+            {isTemplate && (
+              <span
+                className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono"
+                title="Template — placeholders resolved with the active account"
+                data-testid="app-host-resolved"
+              >
+                → {resolvedBasePath}
+              </span>
+            )}
             {!isDefault && (
               <button
                 onClick={() => setBasePath(descriptor.defaultBasePath)}

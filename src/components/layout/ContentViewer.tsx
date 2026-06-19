@@ -32,14 +32,7 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
   const resolveRoute = buildRoute || routeForExplorerPath;
 
   const loadContent = useCallback(async () => {
-    console.log(
-      "ContentViewer loadContent called for path:",
-      path,
-      "mode:",
-      mode,
-    ); // Debug
     if (!activeBackend?.adapter || mode !== "filesystem") {
-      console.log("ContentViewer: skipping load - no adapter or wrong mode"); // Debug
       setLoading(false);
       setError("No backend available");
       setRecord(null);
@@ -53,59 +46,36 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
       setRecord(null);
       setDirectoryContents([]);
 
-      // Handle root path specially - use schema-driven rootNodes
+      // Root path uses schema-driven nav nodes rather than the adapter
+      // (the adapter has no URI for "/").
       if (path === "/" || path === "") {
-        console.log(
-          "ContentViewer: showing root nodes from schema:",
-          rootNodes,
-        ); // Debug
         setDirectoryContents(rootNodes);
         setLoading(false);
         return;
       }
 
-      console.log("ContentViewer: loading list for path:", path); // Debug
       const listResponse: PaginatedResponse<NavigationNode> =
         await activeBackend.adapter.listPath(path, { page: 1, limit: 50 });
-      console.log(
-        "ContentViewer: listResponse for",
-        path,
-        "data length:",
-        listResponse.data.length,
-      ); // Debug
 
-      // Detection logic: if listPath returns empty data (length === 0), it's a file - call readRecord
+      // Empty list == leaf; fall through to readRecord. Otherwise render
+      // as a directory.
       if (listResponse.data.length === 0) {
-        console.log(
-          "ContentViewer: detected file (empty list), loading record for",
-          path,
-        ); // Debug
-        const fileRecord = await activeBackend.adapter
-          .readRecord(path);
+        const fileRecord = await activeBackend.adapter.readRecord(path);
         setRecord(fileRecord);
-        console.log("ContentViewer: file record loaded:", fileRecord); // Debug
       } else {
-        // Otherwise, it's a directory - show contents
-        console.log(
-          "ContentViewer: detected directory with",
-          listResponse.data.length,
-          "items",
-        ); // Debug
         setDirectoryContents(listResponse.data);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       setError(`Failed to load content: ${errorMsg}`);
-      console.error("ContentViewer load error:", err); // Debug
     } finally {
       setLoading(false);
     }
-  }, [path, activeBackend, mode, rootNodes]); // Stable callback with deps
+  }, [path, activeBackend, mode, rootNodes]);
 
   useEffect(() => {
-    console.log("ContentViewer useEffect triggered for path:", path); // Debug
     loadContent();
-  }, [loadContent, path]); // Depend on callback (re-runs when path changes)
+  }, [loadContent, path]);
 
   const copyToClipboard = async () => {
     if (!record) {
@@ -367,10 +337,7 @@ function DirectoryViewer(
           <div
             key={item.path}
             className="flex items-center space-x-3 p-3 rounded-lg hover:bg-accent cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
-            onClick={() => {
-              console.log("DirectoryViewer clicked item:", item.path); // Debug
-              navigate(buildRoute(item.path));
-            }}
+            onClick={() => navigate(buildRoute(item.path))}
             tabIndex={0}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
