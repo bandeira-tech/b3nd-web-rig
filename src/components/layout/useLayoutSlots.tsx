@@ -9,6 +9,7 @@ import { NodesLayoutSlot } from "../nodes/NodesLayoutSlot";
 import { SettingsLayoutSlot } from "./slots/SettingsLayoutSlot";
 import { AccountsLayoutSlot } from "./slots/AccountsLayoutSlot";
 import { SimpleLeftSlot } from "./slots/SimpleLeftSlot";
+import { AppsLayoutSlot } from "../apps/AppsLayoutSlot";
 import type { AppMode } from "../../types";
 
 type LayoutSlotKey =
@@ -16,7 +17,8 @@ type LayoutSlotKey =
   | "accounts"
   | "editor"
   | "explorer"
-  | "nodes";
+  | "nodes"
+  | "apps";
 
 type LayoutSlot = {
   Left: ComponentType;
@@ -50,6 +52,11 @@ const layoutSlots: Record<LayoutSlotKey, LayoutSlot> = {
     Main: NodesLayoutSlot,
     rightPanelToggleVisible: () => true,
   },
+  apps: {
+    Left: () => <SimpleLeftSlot title="Apps" />,
+    Main: AppsLayoutSlot,
+    rightPanelToggleVisible: () => false,
+  },
 };
 
 export function useLayoutSlots() {
@@ -63,6 +70,7 @@ export function useLayoutSlots() {
     if (activeApp === "nodes") return "nodes";
     if (activeApp === "editor") return "editor";
     if (activeApp === "explorer") return "explorer";
+    if (activeApp === "apps") return "apps";
     throw new Error("Unsupported layout slot configuration");
   })();
 

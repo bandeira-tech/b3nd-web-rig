@@ -76,6 +76,11 @@ export function AppLayout() {
       if (mainView !== "content") setMainView("content");
       return;
     }
+    if (relativePath.startsWith("/apps")) {
+      if (activeApp !== "apps") setActiveApp("apps");
+      if (mainView !== "content") setMainView("content");
+      return;
+    }
     if (relativePath.startsWith("/editor")) {
       if (activeApp !== "editor") setActiveApp("editor");
       if (mainView !== "content") setMainView("content");

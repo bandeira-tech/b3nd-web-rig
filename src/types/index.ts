@@ -76,7 +76,8 @@ export type AppMode = "filesystem" | "search" | "watched";
 export type AppExperience =
   | "explorer"
   | "editor"
-  | "nodes";
+  | "nodes"
+  | "apps";
 
 /**
  * Editor sections — the rig-level write surface.

@@ -4,6 +4,7 @@ import { useAppStore } from "../../stores/appStore";
 import {
   Compass,
   FileEdit,
+  LayoutGrid,
   Monitor,
   Moon,
   Server,
@@ -14,6 +15,7 @@ import {
 import {
   cn,
   RIG_ACCOUNTS_PATH,
+  RIG_APPS_BASE_PATH,
   RIG_EDITOR_BASE_PATH,
   RIG_EXPLORER_BASE_PATH,
   RIG_NODES_PATH,
@@ -88,6 +90,14 @@ export function BrandHeader() {
           icon={<Server className="h-4 w-4" />}
           onClick={() => {
             navigate(RIG_NODES_PATH);
+          }}
+        />
+        <AppSwitchButton
+          active={activeApp === "apps"}
+          label="Apps"
+          icon={<LayoutGrid className="h-4 w-4" />}
+          onClick={() => {
+            navigate(RIG_APPS_BASE_PATH);
           }}
         />
       </div>

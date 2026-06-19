@@ -3,13 +3,28 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
 import { deriveHint, displayRegistry } from "./display";
+import { createRigSlot, normalizeBasePath } from "./apps/runtime";
+import { defaultAppCatalog, listBuiltinApps } from "./apps/registry";
 
-// E2E test hook: expose the display registry so Playwright can assert
-// hint derivation without mounting the explorer for every URI shape.
+// E2E test hooks: expose enough of the display + apps subsystems so
+// Playwright can drive them directly without mounting the entire UI.
 if (typeof window !== "undefined") {
   (window as unknown as {
     __b3ndDisplay: { deriveHint: typeof deriveHint; registry: typeof displayRegistry };
   }).__b3ndDisplay = { deriveHint, registry: displayRegistry };
+  (window as unknown as {
+    __b3ndApps: {
+      createRigSlot: typeof createRigSlot;
+      normalizeBasePath: typeof normalizeBasePath;
+      catalog: typeof defaultAppCatalog;
+      builtins: typeof listBuiltinApps;
+    };
+  }).__b3ndApps = {
+    createRigSlot,
+    normalizeBasePath,
+    catalog: defaultAppCatalog,
+    builtins: listBuiltinApps,
+  };
 }
 
 class ErrorBoundary

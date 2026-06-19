@@ -69,6 +69,7 @@ export const RIG_EDITOR_BASE_PATH = "/editor";
 export const RIG_SETTINGS_PATH = "/settings";
 export const RIG_ACCOUNTS_PATH = "/accounts";
 export const RIG_NODES_PATH = "/nodes";
+export const RIG_APPS_BASE_PATH = "/apps";
 
 export function routeForExplorerPath(
   path: string,

@@ -19,7 +19,11 @@ mountable UI applications, all stored on B3nd.
 
 - **Iter 1** — Hinted display registry. JSON / text / markdown / image /
   raw strategies. Wire `ContentViewer` to dispatch through it. Tests via
-  seeded MemoryStore.
+  seeded MemoryStore. ✓ shipped.
+- **Iter 2** — Apps system. `AppDescriptor`, built-in registry, `RigSlot`
+  scoped to a basepath, `/apps` browser, `/apps/:slug` AppHost with
+  inline basepath editor. First built-in: Notes (markdown notepad).
+  ✓ shipped.
 
 ## Nudges (carry across runs)
 

@@ -81,6 +81,7 @@ function App() {
             <Route path="/nodes/*" element={<AppLayout />} />
             <Route path="/explorer/*" element={<AppLayout />} />
             <Route path="/editor/*" element={<AppLayout />} />
+            <Route path="/apps/*" element={<AppLayout />} />
             <Route path="/accounts" element={<AppLayout />} />
             <Route path="/settings" element={<AppLayout />} />
             <Route
