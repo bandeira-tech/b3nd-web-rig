@@ -1,6 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 5556;
+// Picked away from the common Vite default (5173) and from sibling repos
+// in this workspace that already grab 5555/5556 (info-rig). reuseExistingServer
+// would otherwise latch onto whatever happens to be on the port.
+const PORT = 5566;
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({

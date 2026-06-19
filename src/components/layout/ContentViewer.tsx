@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { routeForExplorerPath } from "../../utils";
 import { useActiveBackend } from "../../stores/appStore";
 import type { NavigationNode, PaginatedResponse } from "../../types";
 import {
-  ChevronDown,
-  ChevronRight,
   Copy,
   Download,
   FileText,
@@ -15,6 +12,7 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
+import { deriveHint, displayRegistry } from "../../display";
 // no extra utils used here
 
 interface ContentViewerProps {
@@ -118,8 +116,21 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
       throw new Error("Clipboard API is not available in this browser");
     }
 
-    const jsonString = JSON.stringify(record.data, null, 2);
-    await navigator.clipboard.writeText(jsonString);
+    // Copy in the format the user is looking at: text-like hints copy as
+    // text; everything else copies pretty-printed JSON.
+    const uri = pathToUri(path);
+    const hint = deriveHint({ uri, data: record.data });
+    const text = hint.kind === "text" || hint.kind === "markdown" ||
+        hint.kind === "html"
+      ? (typeof hint.payload === "string"
+        ? hint.payload
+        : String(hint.payload ?? ""))
+      : JSON.stringify(
+        hint.kind === "json" ? hint.payload : record.data,
+        null,
+        2,
+      );
+    await navigator.clipboard.writeText(text);
   };
 
   if (loading) {
@@ -144,7 +155,12 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
       ? activeBackend.adapter.getReadUrl(path)
       : undefined;
     return (
-      <FileViewer record={record} onCopy={copyToClipboard} readUrl={readUrl} />
+      <FileViewer
+        path={path}
+        record={record}
+        onCopy={copyToClipboard}
+        readUrl={readUrl}
+      />
     );
   }
 
@@ -161,33 +177,49 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
   );
 }
 
+function pathToUri(path: string): string | undefined {
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length < 1) return undefined;
+  if (parts.length === 1) return `${parts[0]}://`;
+  const [protocol, domain, ...rest] = parts;
+  const subpath = rest.length ? "/" + rest.join("/") : "";
+  return `${protocol}://${domain}${subpath}`;
+}
+
 function FileViewer({
+  path,
   record,
   onCopy,
   readUrl,
 }: {
+  path: string;
   record: { data: unknown };
   onCopy: () => Promise<void>;
   readUrl?: string;
 }) {
-  const [expanded, setExpanded] = useState(true);
   const [copyState, setCopyState] = useState<"idle" | "success" | "error">(
     "idle",
   );
   const [copyError, setCopyError] = useState<string | null>(null);
+
+  const uri = useMemo(() => pathToUri(path), [path]);
+  const hint = useMemo(
+    () => deriveHint({ uri, data: record.data }),
+    [uri, record.data],
+  );
+  const strategy = useMemo(() => displayRegistry.resolve(hint), [hint]);
+  const StrategyView = strategy.component;
 
   const handleCopyClick = async () => {
     try {
       setCopyError(null);
       await onCopy();
       setCopyState("success");
-      setTimeout(() => {
-        setCopyState("idle");
-      }, 2000);
+      setTimeout(() => setCopyState("idle"), 2000);
     } catch (error) {
       const message = error instanceof Error
         ? error.message
-        : "Failed to copy JSON";
+        : "Failed to copy";
       setCopyError(message);
       setCopyState("error");
       setTimeout(() => {
@@ -199,12 +231,11 @@ function FileViewer({
 
   const handleDownloadClick = () => {
     try {
-      const jsonString = JSON.stringify(record.data, null, 2);
-      const blob = new Blob([jsonString], { type: "application/json" });
+      const { blob, filename } = buildDownload(hint, record.data);
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "record.json";
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -212,7 +243,7 @@ function FileViewer({
     } catch (error) {
       const message = error instanceof Error
         ? error.message
-        : "Failed to download JSON";
+        : "Failed to download";
       setCopyError(message);
       setCopyState("error");
       setTimeout(() => {
@@ -222,66 +253,24 @@ function FileViewer({
     }
   };
 
-  const formatData = (data: any, level = 0): ReactNode => {
-    if (data === null || data === undefined) {
-      return <span className="json-null">null</span>;
-    }
-    if (typeof data === "string") {
-      return <span className="json-string">"{data}"</span>;
-    }
-    if (typeof data === "number") {
-      return <span className="json-number">{data}</span>;
-    }
-    if (typeof data === "boolean") {
-      return <span className="json-boolean">{String(data)}</span>;
-    }
-    if (Array.isArray(data)) {
-      return (
-        <div className="ml-4">
-          [<br />
-          {data.map((item, i) => (
-            <div
-              key={`arr-${level}-${i}`}
-              style={{ paddingLeft: `${level * 2 + 1}rem` }}
-            >
-              {formatData(item, level + 1)}
-              {i < data.length - 1 && ","}
-            </div>
-          ))}
-          <br />]
-        </div>
-      );
-    }
-    if (typeof data === "object" && data !== null) {
-      return (
-        <div className="ml-4">
-          {Object.entries(data).map(([k, v]) => {
-            const key = `obj-${level}-${k}`;
-            return (
-              <div key={key} style={{ paddingLeft: `${level * 2 + 1}rem` }}>
-                <span className="json-key">"{k}"</span>:{" "}
-                {formatData(v, level + 1)}
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-    return <span>{String(data)}</span>;
-  };
-
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold flex items-center space-x-2">
           <FileText className="h-5 w-5" />
           <span>Record Data</span>
+          <span
+            data-testid="display-kind"
+            className="text-xs font-normal px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+          >
+            {strategy.label ?? hint.kind}
+          </span>
         </h3>
         <div className="flex items-center space-x-2">
           <button
             onClick={handleCopyClick}
             className="p-2 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
-            title="Copy JSON"
+            title="Copy"
           >
             <Copy className="h-4 w-4" />
           </button>
@@ -313,25 +302,50 @@ function FileViewer({
           )}
         </div>
       </div>
-      {/* Conserved quantities, if any, live inside `record.data` per RFC 001. */}
-      <pre className="bg-muted rounded p-4 overflow-auto max-h-96 custom-scrollbar font-mono text-sm">
-        <div className="flex items-center space-x-2 mb-2">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="p-1 rounded focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {expanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-          </button>
-          <span className="json-key">data</span>:
-        </div>
-        {expanded && formatData(record.data)}
-      </pre>
+      <div className="bg-card rounded-md border border-border p-3">
+        <StrategyView hint={hint} context={{ uri, readUrl }} />
+      </div>
     </div>
   );
+}
+
+function buildDownload(
+  hint: ReturnType<typeof deriveHint>,
+  raw: unknown,
+): { blob: Blob; filename: string } {
+  if (hint.kind === "json") {
+    const json = JSON.stringify(hint.payload, null, 2);
+    return {
+      blob: new Blob([json], { type: "application/json" }),
+      filename: "record.json",
+    };
+  }
+  if (hint.kind === "binary" && raw instanceof Uint8Array) {
+    return {
+      blob: new Blob([raw], { type: hint.contentType ?? "application/octet-stream" }),
+      filename: `record.${hint.extension ?? "bin"}`,
+    };
+  }
+  if (hint.kind === "image" && typeof hint.payload === "string" &&
+      hint.payload.startsWith("data:")) {
+    // Re-encode to bytes for a real file download.
+    const comma = hint.payload.indexOf(",");
+    const base64 = hint.payload.slice(comma + 1);
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return {
+      blob: new Blob([bytes], { type: hint.contentType ?? "application/octet-stream" }),
+      filename: `record.${hint.extension ?? "img"}`,
+    };
+  }
+  const text = typeof hint.payload === "string"
+    ? hint.payload
+    : String(hint.payload ?? "");
+  return {
+    blob: new Blob([text], { type: hint.contentType ?? "text/plain" }),
+    filename: `record.${hint.extension ?? "txt"}`,
+  };
 }
 
 function DirectoryViewer(

@@ -2,6 +2,15 @@ import { Component, type ReactNode, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
+import { deriveHint, displayRegistry } from "./display";
+
+// E2E test hook: expose the display registry so Playwright can assert
+// hint derivation without mounting the explorer for every URI shape.
+if (typeof window !== "undefined") {
+  (window as unknown as {
+    __b3ndDisplay: { deriveHint: typeof deriveHint; registry: typeof displayRegistry };
+  }).__b3ndDisplay = { deriveHint, registry: displayRegistry };
+}
 
 class ErrorBoundary
   extends Component<{ children: ReactNode }, { error: Error | null }> {
