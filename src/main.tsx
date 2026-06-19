@@ -11,6 +11,13 @@ import {
   listMounts,
   setMountBasePath,
 } from "./apps/mounts";
+import {
+  getCatalogBasePath,
+  getDefaultCatalogBasePath,
+  loadCatalog,
+  publishDescriptor,
+  setCatalogBasePath,
+} from "./apps/catalog";
 
 // E2E test hooks: expose enough of the display + apps subsystems so
 // Playwright can drive them directly without mounting the entire UI.
@@ -22,7 +29,7 @@ if (typeof window !== "undefined") {
     __b3ndApps: {
       createRigSlot: typeof createRigSlot;
       normalizeBasePath: typeof normalizeBasePath;
-      catalog: typeof defaultAppCatalog;
+      defaults: typeof defaultAppCatalog;
       builtins: typeof listBuiltinApps;
       mounts: {
         get: typeof getMountBasePath;
@@ -30,17 +37,31 @@ if (typeof window !== "undefined") {
         clear: typeof clearMountBasePath;
         list: typeof listMounts;
       };
+      catalog: {
+        load: typeof loadCatalog;
+        publish: typeof publishDescriptor;
+        getBasePath: typeof getCatalogBasePath;
+        setBasePath: typeof setCatalogBasePath;
+        getDefaultBasePath: typeof getDefaultCatalogBasePath;
+      };
     };
   }).__b3ndApps = {
     createRigSlot,
     normalizeBasePath,
-    catalog: defaultAppCatalog,
+    defaults: defaultAppCatalog,
     builtins: listBuiltinApps,
     mounts: {
       get: getMountBasePath,
       set: setMountBasePath,
       clear: clearMountBasePath,
       list: listMounts,
+    },
+    catalog: {
+      load: loadCatalog,
+      publish: publishDescriptor,
+      getBasePath: getCatalogBasePath,
+      setBasePath: setCatalogBasePath,
+      getDefaultBasePath: getDefaultCatalogBasePath,
     },
   };
 }

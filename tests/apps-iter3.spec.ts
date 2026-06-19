@@ -3,7 +3,7 @@ import { expect, test } from "./fixtures";
 declare global {
   interface Window {
     __b3ndApps?: {
-      catalog: Array<{ slug: string; name: string; defaultBasePath: string }>;
+      defaults: Array<{ slug: string; name: string; defaultBasePath: string }>;
       mounts: {
         get(slug: string): string | undefined;
         set(slug: string, basePath: string): void;
@@ -17,7 +17,7 @@ declare global {
 test.describe("default catalog (iter 3)", () => {
   test("ships both Notes and Bookmarks", async ({ app }) => {
     const slugs = await app.evaluate(() =>
-      window.__b3ndApps!.catalog.map((d) => d.slug)
+      window.__b3ndApps!.defaults.map((d) => d.slug)
     );
     expect(slugs).toEqual(expect.arrayContaining(["notes", "bookmarks"]));
   });

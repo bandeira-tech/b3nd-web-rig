@@ -1,24 +1,48 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 import { useAppStore } from "../../stores/appStore";
-import { defaultAppCatalog, getBuiltinApp } from "../../apps/registry";
+import { getBuiltinApp } from "../../apps/registry";
 import { createRigSlot, type SlotBackend } from "../../apps/runtime";
 import {
   clearMountBasePath,
   getMountBasePath,
   setMountBasePath,
 } from "../../apps/mounts";
+import { loadCatalog } from "../../apps/catalog";
+import type { AppDescriptor } from "../../apps/types";
 
 export function AppHost() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const rig = useAppStore((s) => s.rig) as SlotBackend | null;
 
-  const descriptor = useMemo(
-    () => defaultAppCatalog.find((d) => d.slug === slug),
-    [slug],
+  const [descriptor, setDescriptor] = useState<AppDescriptor | undefined>(
+    undefined,
   );
+  const [resolving, setResolving] = useState(true);
+  useEffect(() => {
+    if (!slug) {
+      setDescriptor(undefined);
+      setResolving(false);
+      return;
+    }
+    setResolving(true);
+    if (!rig) return;
+    let cancelled = false;
+    void loadCatalog(rig).then((cat) => {
+      if (cancelled) return;
+      setDescriptor(cat.find((d) => d.slug === slug));
+      setResolving(false);
+    }).catch(() => {
+      if (cancelled) return;
+      setDescriptor(undefined);
+      setResolving(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, rig]);
 
   // Per-app basepath: stored override first, descriptor default second.
   // Edits write back to localStorage so reloads pick up where the user
@@ -46,6 +70,14 @@ export function AppHost() {
   const isDefault = descriptor
     ? basePath === descriptor.defaultBasePath
     : true;
+
+  if (resolving) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground" data-testid="app-host-resolving">
+        Loading app…
+      </div>
+    );
+  }
 
   if (!descriptor) {
     return (

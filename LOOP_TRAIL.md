@@ -29,6 +29,13 @@ mountable UI applications, all stored on B3nd.
   Bookmarks (one JSON record per URL). Fixed a slugify bug that pushed
   records into a sub-prefix `list()` couldn't enumerate — caught by a
   failing test. ✓ shipped.
+- **Iter 4** — Rig-stored catalog. `src/apps/catalog.ts` reads
+  `AppDescriptor` records from a configurable catalog basepath and
+  merges them with built-in defaults (user slugs override defaults).
+  `AppsBrowser` shows the catalog basepath + a publish form; AppHost
+  resolves the descriptor via the catalog (not just hard-coded
+  defaults), so user-published slugs can be navigated to. The catalog
+  basepath persists like mount overrides. ✓ shipped.
 
 ## Nudges (carry across runs)
 
