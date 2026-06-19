@@ -75,9 +75,9 @@ test.describe("AppHost shows resolved basepath next to a template", () => {
 
   test("the resolved badge shows the substituted path with the fallback when no account", async ({ app }) => {
     const input = app.getByTestId("app-host-basepath");
-    await expect(input).toHaveValue(/^memory:\/\/accounts\/\{account\?shared\}\/notes$/);
+    await expect(input).toHaveValue(/^mutable:\/\/\{account\?shared\}\/notes$/);
     await expect(app.getByTestId("app-host-resolved")).toContainText(
-      "memory://accounts/shared/notes",
+      "mutable://shared/notes",
     );
   });
 });

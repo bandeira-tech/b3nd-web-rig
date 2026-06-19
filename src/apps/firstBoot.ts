@@ -55,7 +55,7 @@ const HELLO_HTML = `<!doctype html>
       const listEl = document.getElementById('list');
       const bp = await window.b3ndSlot.basePath();
       bpEl.textContent = bp;
-      document.getElementById('self').textContent = 'memory://rig/hello-b3nd.html';
+      document.getElementById('self').textContent = 'immutable://rig/hello-b3nd.html';
 
       async function refresh() {
         const items = await window.b3ndSlot.list();
@@ -89,8 +89,8 @@ const HELLO_DESCRIPTOR = {
   name: "Hello B3nd",
   description: "A sample HTML app. Open it to see how UIs talk to your rig.",
   icon: "👋",
-  defaultBasePath: "memory://accounts/{account?shared}/hello-b3nd",
-  display: { kind: "html", uri: "memory://rig/hello-b3nd.html" },
+  defaultBasePath: "mutable://{account?shared}/hello-b3nd",
+  display: { kind: "html", uri: "immutable://rig/hello-b3nd.html" },
 } as const;
 
 /**
@@ -108,7 +108,11 @@ export async function seedFirstBoot(backend: SlotBackend): Promise<void> {
     return;
   }
   try {
-    const rigSlot = createRigSlot(backend, "memory://rig");
+    // Welcome doc is a one-shot snapshot — write-once via `immutable://`.
+    // The sample HTML app's body lives in the same surface so the
+    // descriptor URI (`immutable://rig/hello-b3nd.html`) matches what
+    // gets stored. Behavior-named schemes — see uri-scheme-shape.md.
+    const rigSlot = createRigSlot(backend, "immutable://rig");
     await rigSlot.write("welcome.md", WELCOME_MARKDOWN);
     await rigSlot.write("hello-b3nd.html", HELLO_HTML);
     await publishDescriptor(backend, HELLO_DESCRIPTOR);

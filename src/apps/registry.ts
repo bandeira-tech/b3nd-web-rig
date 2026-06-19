@@ -38,10 +38,12 @@ export const defaultAppCatalog: AppDescriptor[] = [
     name: "Notes",
     description: "A markdown notepad scoped to a basepath you choose.",
     icon: "📝",
-    // {account?shared} → active account pubkey, or "shared" when no
-    // account is selected. Apps that should follow identity ship with
-    // a placeholder here.
-    defaultBasePath: "memory://accounts/{account?shared}/notes",
+    // Behavior-named scheme: `mutable://` says "latest write wins under
+    // this identity" — the rule, not the backend. {account?shared} is
+    // the identity segment (pubkey when an account is active, the
+    // literal "shared" otherwise). The route table on the rig wires the
+    // scheme to whichever store enforces the behavior.
+    defaultBasePath: "mutable://{account?shared}/notes",
     display: { kind: "builtin", id: "builtin:notes" },
   },
   {
@@ -49,7 +51,7 @@ export const defaultAppCatalog: AppDescriptor[] = [
     name: "Bookmarks",
     description: "Stash URLs under your own basepath. One JSON record per link.",
     icon: "🔖",
-    defaultBasePath: "memory://accounts/{account?shared}/bookmarks",
+    defaultBasePath: "mutable://{account?shared}/bookmarks",
     display: { kind: "builtin", id: "builtin:bookmarks" },
   },
   {
@@ -57,7 +59,7 @@ export const defaultAppCatalog: AppDescriptor[] = [
     name: "Files",
     description: "Drop files of any kind under your basepath. Preview, download, delete.",
     icon: "📁",
-    defaultBasePath: "memory://accounts/{account?shared}/files",
+    defaultBasePath: "mutable://{account?shared}/files",
     display: { kind: "builtin", id: "builtin:files" },
   },
   {
@@ -65,7 +67,7 @@ export const defaultAppCatalog: AppDescriptor[] = [
     name: "Inbox",
     description: "A timestamped log for thoughts and links — anything that can write a record.",
     icon: "📥",
-    defaultBasePath: "memory://accounts/{account?shared}/inbox",
+    defaultBasePath: "mutable://{account?shared}/inbox",
     display: { kind: "builtin", id: "builtin:inbox" },
   },
 ];

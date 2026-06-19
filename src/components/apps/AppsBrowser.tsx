@@ -304,7 +304,7 @@ function PublishForm({ basePath, rig, onPublished, onError }: PublishFormProps) 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("");
-  const [defaultBasePath, setDefaultBasePath] = useState("memory://my-data/");
+  const [defaultBasePath, setDefaultBasePath] = useState("mutable://my-data/");
   const [builtinId, setBuiltinId] = useState(builtins[0]?.id ?? "");
   const [htmlBody, setHtmlBody] = useState(DEFAULT_HTML_TEMPLATE);
 
@@ -431,10 +431,21 @@ function PublishForm({ basePath, rig, onPublished, onError }: PublishFormProps) 
           required
           value={defaultBasePath}
           onChange={(e) => setDefaultBasePath(e.target.value)}
-          placeholder="memory://my-data/"
+          placeholder="mutable://my-data/"
           className="bg-muted/40 border border-border rounded px-2 py-1 font-mono text-xs"
           data-testid="apps-publish-basepath"
         />
+        <span className="text-[10px] text-muted-foreground leading-snug">
+          Tip: name the <em>behavior</em>, not the backend.{" "}
+          <code className="font-mono">mutable://</code> (latest write wins),{" "}
+          <code className="font-mono">immutable://</code> (write-once),{" "}
+          <code className="font-mono">signed://&lt;pubkey&gt;/</code>{" "}
+          (key-gated),{" "}
+          <code className="font-mono">hash://sha256/</code>{" "}
+          (content-addressed). Use{" "}
+          <code className="font-mono">{`{account?shared}`}</code>{" "}
+          to scope by identity.
+        </span>
       </label>
       {kind === "builtin"
         ? (

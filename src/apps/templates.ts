@@ -5,7 +5,13 @@
  * placeholders so the same descriptor can scope per-identity without
  * the user editing it manually:
  *
- *   memory://accounts/{account}/notes
+ *   mutable://{account}/notes
+ *
+ * Behavior-named schemes (the part before `://`) describe what the
+ * program enforces, not which backend serves the data: `mutable://`,
+ * `immutable://`, `signed://<pubkey>/`, `hash://sha256/`, `encrypted://`.
+ * App authors compose them; the rig wires schemes to backends. See
+ * b3nd-skill notes/uri-scheme-shape.md for the rationale.
  *
  * Supported placeholders:
  *   {account}      → active account pubkey (hex), or the literal fallback
@@ -15,7 +21,7 @@
  *
  * Each placeholder accepts a fallback after `?`:
  *
- *   memory://notes/{account?anonymous}
+ *   mutable://{account?anonymous}/notes
  */
 
 export interface AccountContext {

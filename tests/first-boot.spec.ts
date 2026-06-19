@@ -32,7 +32,7 @@ test.describe("first-boot seed", () => {
         const rig = window.__b3ndStore!.getState().rig;
         const cat = await apps.catalog.load(rig);
         const slugs = cat.map((d) => d.slug);
-        const rigSlot = apps.createRigSlot(rig, "memory://rig");
+        const rigSlot = apps.createRigSlot(rig, "immutable://rig");
         const records = await rigSlot.read(["welcome.md", "hello-b3nd.html"]);
         return {
           hasHelloTile: slugs.includes("hello-b3nd"),

@@ -32,7 +32,7 @@ test.describe("apps catalog & browser", () => {
     await expect(app.getByTestId("app-host-notes")).toBeVisible();
     await expect(app.getByTestId("builtin-notes-app")).toBeVisible();
     const value = await app.getByTestId("app-host-basepath").inputValue();
-    expect(value).toMatch(/^memory:\/\//);
+    expect(value).toMatch(/^mutable:\/\//);
   });
 
   test("an unknown slug renders the missing-app fallback", async ({ app }) => {

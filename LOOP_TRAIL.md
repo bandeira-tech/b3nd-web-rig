@@ -90,6 +90,23 @@ mountable UI applications, all stored on B3nd.
   load and publishes its descriptor to the default catalog, so a
   fresh visitor sees something tangible from second one. Idempotent
   via localStorage marker. ✓ shipped.
+- **Iter 13** — Behavior-named schemes in the apps catalog. Applies
+  the learning from `../b3nd-skill/notes/uri-scheme-shape.md`: scheme
+  names a behavior (`mutable://`, `immutable://`, `signed://<pubkey>/`,
+  `hash://sha256/`, `encrypted://`), not a backend. Switched the four
+  built-in defaults from `memory://accounts/{account?shared}/<app>` to
+  `mutable://{account?shared}/<app>` — the rule lives in the scheme,
+  the identity scope lives in the path's first segment (matching the
+  `mutable://<pubkey>/<path>` convention from the skill). First-boot
+  seed now writes welcome.md and the Hello B3nd HTML body under
+  `immutable://rig/` (write-once snapshot — correct for boot content
+  the user can't author). PublishForm placeholder switched to
+  `mutable://my-data/` and gained inline guidance on the four
+  behavior-named schemes. `templates.ts` docs and three tests updated.
+  Rig wiring is unchanged: `connection(client, ["**"])` already routes
+  any scheme to the configured store, so no backend work needed. The
+  defaults now teach the right pattern to anyone who copies them.
+  ✓ shipped.
 
 ## Nudges (carry across runs)
 
@@ -106,3 +123,7 @@ mountable UI applications, all stored on B3nd.
 - `page.goto()` reloads the SPA and wipes the in-memory rig. When a
   test needs to seed data and then navigate, use SPA navigation
   (`history.pushState` + `popstate` dispatch) instead.
+- Default basepath templates *teach by example* — users copy them
+  when publishing their own apps. Keep them behavior-named
+  (`mutable://...`, `immutable://...`) and identity-scoped
+  (`{account?shared}`), not backend-named (`memory://...`).
