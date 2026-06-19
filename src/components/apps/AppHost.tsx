@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RotateCcw } from "lucide-react";
 import { useAppStore } from "../../stores/appStore";
 import { defaultAppCatalog, getBuiltinApp } from "../../apps/registry";
 import { createRigSlot, type SlotBackend } from "../../apps/runtime";
+import {
+  clearMountBasePath,
+  getMountBasePath,
+  setMountBasePath,
+} from "../../apps/mounts";
 
 export function AppHost() {
   const { slug } = useParams<{ slug: string }>();
@@ -15,15 +20,32 @@ export function AppHost() {
     [slug],
   );
 
-  // Allow the user to override the basepath at mount time. Persisting per
-  // (descriptor, account) lives in iter 3; for now the override is session
-  // local — good enough to make the mount affordance visible and testable.
-  const [basePath, setBasePath] = useState<string>(
+  // Per-app basepath: stored override first, descriptor default second.
+  // Edits write back to localStorage so reloads pick up where the user
+  // left off — own-your-data persistence moves to b3nd in a later iter.
+  const [basePath, setBasePathState] = useState<string>(
     descriptor?.defaultBasePath ?? "",
   );
   useEffect(() => {
-    if (descriptor) setBasePath(descriptor.defaultBasePath);
+    if (!descriptor) return;
+    setBasePathState(
+      getMountBasePath(descriptor.slug) ?? descriptor.defaultBasePath,
+    );
   }, [descriptor]);
+
+  const setBasePath = (next: string) => {
+    setBasePathState(next);
+    if (!descriptor) return;
+    if (next === descriptor.defaultBasePath) {
+      clearMountBasePath(descriptor.slug);
+    } else {
+      setMountBasePath(descriptor.slug, next);
+    }
+  };
+
+  const isDefault = descriptor
+    ? basePath === descriptor.defaultBasePath
+    : true;
 
   if (!descriptor) {
     return (
@@ -88,8 +110,8 @@ export function AppHost() {
         </button>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold truncate">{descriptor.name}</div>
-          <div className="text-xs text-muted-foreground truncate">
-            mounted at{" "}
+          <div className="text-xs text-muted-foreground truncate flex items-center gap-2">
+            <span>mounted at</span>
             <input
               value={basePath}
               onChange={(e) => setBasePath(e.target.value)}
@@ -97,6 +119,16 @@ export function AppHost() {
               data-testid="app-host-basepath"
               aria-label="Basepath"
             />
+            {!isDefault && (
+              <button
+                onClick={() => setBasePath(descriptor.defaultBasePath)}
+                title="Reset to default basepath"
+                className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                data-testid="app-host-reset-basepath"
+              >
+                <RotateCcw className="h-3 w-3" />
+              </button>
+            )}
           </div>
         </div>
       </header>

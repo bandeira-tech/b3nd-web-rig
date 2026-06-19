@@ -24,6 +24,11 @@ mountable UI applications, all stored on B3nd.
   scoped to a basepath, `/apps` browser, `/apps/:slug` AppHost with
   inline basepath editor. First built-in: Notes (markdown notepad).
   ✓ shipped.
+- **Iter 3** — Per-app basepath persistence (`src/apps/mounts.ts`,
+  localStorage) + reset-to-default button. Second built-in app:
+  Bookmarks (one JSON record per URL). Fixed a slugify bug that pushed
+  records into a sub-prefix `list()` couldn't enumerate — caught by a
+  failing test. ✓ shipped.
 
 ## Nudges (carry across runs)
 
@@ -31,3 +36,9 @@ mountable UI applications, all stored on B3nd.
 - Test surface today is Playwright e2e only. Don't add Vitest yet.
 - When deps need updating, branch in `~/ws/b3nd-*` and link locally.
 - Commit + push at end of each iteration. CI is org-level (check before push).
+- Slot keys are flat under the basepath — `/` inside a generated key
+  silently nests one level deeper than `slot.list()` enumerates.
+  Strip `/` in any slugify before composing a key.
+- Controlled-input + sync click can race React batching. When tests
+  flake on "form submit didn't see latest state", check the assertion
+  *before* assuming a logic bug.

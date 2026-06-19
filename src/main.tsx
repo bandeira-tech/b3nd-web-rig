@@ -5,6 +5,12 @@ import App from "./App.tsx";
 import { deriveHint, displayRegistry } from "./display";
 import { createRigSlot, normalizeBasePath } from "./apps/runtime";
 import { defaultAppCatalog, listBuiltinApps } from "./apps/registry";
+import {
+  clearMountBasePath,
+  getMountBasePath,
+  listMounts,
+  setMountBasePath,
+} from "./apps/mounts";
 
 // E2E test hooks: expose enough of the display + apps subsystems so
 // Playwright can drive them directly without mounting the entire UI.
@@ -18,12 +24,24 @@ if (typeof window !== "undefined") {
       normalizeBasePath: typeof normalizeBasePath;
       catalog: typeof defaultAppCatalog;
       builtins: typeof listBuiltinApps;
+      mounts: {
+        get: typeof getMountBasePath;
+        set: typeof setMountBasePath;
+        clear: typeof clearMountBasePath;
+        list: typeof listMounts;
+      };
     };
   }).__b3ndApps = {
     createRigSlot,
     normalizeBasePath,
     catalog: defaultAppCatalog,
     builtins: listBuiltinApps,
+    mounts: {
+      get: getMountBasePath,
+      set: setMountBasePath,
+      clear: clearMountBasePath,
+      list: listMounts,
+    },
   };
 }
 

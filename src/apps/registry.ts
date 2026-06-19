@@ -1,5 +1,6 @@
 import type { AppDescriptor, BuiltinApp } from "./types";
 import { notesApp } from "./builtin/NotesApp";
+import { bookmarksApp } from "./builtin/BookmarksApp";
 
 /**
  * Built-in apps — the React components the rig itself ships. Apps stored
@@ -17,6 +18,7 @@ function registerBuiltin(app: BuiltinApp): void {
 }
 
 registerBuiltin(notesApp);
+registerBuiltin(bookmarksApp);
 
 export function getBuiltinApp(id: string): BuiltinApp | undefined {
   return builtins.get(id);
@@ -34,5 +36,13 @@ export const defaultAppCatalog: AppDescriptor[] = [
     icon: "📝",
     defaultBasePath: "memory://apps-data/notes",
     display: { kind: "builtin", id: "builtin:notes" },
+  },
+  {
+    slug: "bookmarks",
+    name: "Bookmarks",
+    description: "Stash URLs under your own basepath. One JSON record per link.",
+    icon: "🔖",
+    defaultBasePath: "memory://apps-data/bookmarks",
+    display: { kind: "builtin", id: "builtin:bookmarks" },
   },
 ];
