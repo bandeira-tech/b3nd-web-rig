@@ -150,6 +150,8 @@ export interface AppState {
   // Schema and root navigation
   schemas: Record<string, string[]>; // Schemas by instance: { instanceId: [uris] }
   rootNodes: NavigationNode[]; // Virtual root nodes built from schemas
+  /** Per-backend URI prefixes harvested from successful writes. */
+  writtenPrefixes: Record<string, string[]>;
 
   // Navigation
   currentPath: string;
@@ -254,4 +256,7 @@ export interface AppActions {
     entry: Omit<AppLogEntry, "timestamp"> & { timestamp?: number },
   ) => void;
   clearLogs: () => void;
+
+  /** Note a URI written to the active backend so the root nav can show it. */
+  recordWrittenPrefix: (uri: string) => void;
 }

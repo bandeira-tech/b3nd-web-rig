@@ -59,6 +59,17 @@ mountable UI applications, all stored on B3nd.
   out of the box. AppHost shows the resolved value next to the
   template. Stripped the chatty `console.log` calls from ContentViewer
   so the explorer feels less alpha-dev. ✓ shipped.
+- **Iter 9** — All four `.fixme` tests are live. Closed: editor→
+  explorer round-trip, three explorer-seeded tests. Root cause behind
+  the schema-driven nav failure: `status().schema` reports
+  `entity:bytes` (the entity name) instead of URI prefixes. Workaround
+  in the rig: hook `receive:success`, harvest `protocol://host` from
+  every written URI, splice into `rootNodes` so the explorer reflects
+  reality without changing b3nd-save. The HttpAdapter bug from the
+  comment was already fixed in earlier iters — the remaining issue was
+  that the tests used `app.goto()` post-seed, which reloads the page
+  and wipes the in-memory rig; switched them to SPA navigation. The
+  full suite now runs with 53 passed, 0 skipped. ✓ shipped.
 
 ## Nudges (carry across runs)
 

@@ -140,13 +140,18 @@ async function createBackendFromUrl(
     },
   });
 
-  // Wire rig events → bottom-panel log
+  // Wire rig events → bottom-panel log + harvest URI prefixes for the
+  // explorer root nav. The MemoryStore's status.schema reports the
+  // entity name ("entity:bytes") rather than per-URI prefixes, so we
+  // track them ourselves from successful writes.
   rig.on("receive:success", (e) => {
-    useAppStore.getState().addLogEntry({
+    const state = useAppStore.getState();
+    state.addLogEntry({
       source: "rig",
       message: `receive ok: ${e.uri}`,
       level: "success",
     });
+    if (e.uri) state.recordWrittenPrefix(e.uri);
   });
   rig.on("receive:error", (e) => {
     useAppStore.getState().addLogEntry({
@@ -175,6 +180,7 @@ const initialState: Omit<AppState, "backendsReady"> = {
   activeBackendId: null,
   schemas: {},
   rootNodes: [],
+  writtenPrefixes: {},
   currentPath: "/",
   explorerSection: "index" as ExplorerSection,
   explorerIndexPath: "/",
@@ -376,6 +382,24 @@ export const useAppStore = create<AppStore>()(
                   `[loadSchemas] Failed to parse schema URI: ${uri}`,
                   error,
                 );
+              }
+            }
+
+            // Merge in URI prefixes we've observed from writes on this
+            // backend — the MemoryStore reports entity names in schema
+            // rather than URI prefixes, so writes are the only signal.
+            const state = get();
+            const backendId = state.activeBackendId ?? "default";
+            const witnessed = state.writtenPrefixes[backendId] ?? [];
+            for (const prefix of witnessed) {
+              try {
+                const url = new URL(prefix);
+                const path = `/${url.protocol.replace(":", "")}/${url.hostname}`;
+                if (!nodes.some((n) => n.path === path)) {
+                  nodes.push({ path, name: prefix, type: "directory" });
+                }
+              } catch {
+                // ignore unparseable
               }
             }
 
@@ -894,6 +918,31 @@ export const useAppStore = create<AppStore>()(
 
         clearLogs: () => {
           set({ logs: [] });
+        },
+
+        recordWrittenPrefix: (uri: string) => {
+          try {
+            const url = new URL(uri);
+            const prefix = `${url.protocol}//${url.hostname}`;
+            const state = get();
+            const id = state.activeBackendId ?? "default";
+            const existing = state.writtenPrefixes[id] ?? [];
+            if (existing.includes(prefix)) return;
+            const nextForBackend = [...existing, prefix];
+            const nextMap = { ...state.writtenPrefixes, [id]: nextForBackend };
+            // Splice into rootNodes too so the explorer picks it up live.
+            const path = `/${url.protocol.replace(":", "")}/${url.hostname}`;
+            const alreadyInNav = state.rootNodes.some((n) => n.path === path);
+            const newNodes: import("../types").NavigationNode[] = alreadyInNav
+              ? state.rootNodes
+              : [
+                ...state.rootNodes,
+                { path, name: prefix, type: "directory" },
+              ];
+            set({ writtenPrefixes: nextMap, rootNodes: newNodes });
+          } catch {
+            // Non-URL targets (e.g. entity:bytes) don't surface in nav.
+          }
         },
       } satisfies AppStore as AppStore;
     },

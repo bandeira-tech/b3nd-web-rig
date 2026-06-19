@@ -1,10 +1,7 @@
 import { expect, test } from "./fixtures";
 
 test.describe("editor → explorer integration", () => {
-  // BLOCKED on the same HttpAdapter.listPath bug as in explorer-seeded.spec.ts:
-  // the editor's write succeeds (visible in the breadcrumb), but the explorer
-  // can't render the resulting record because listPath throws on the leaf URI.
-  test.fixme("write in editor, read in explorer", async ({ app }) => {
+  test("write in editor, read in explorer", async ({ app }) => {
     // 1. Go to the editor.
     await app.getByRole("button", { name: /Editor/ }).click();
     await expect(app).toHaveURL(/\/editor/);
@@ -23,13 +20,16 @@ test.describe("editor → explorer integration", () => {
       app.getByText("mutable://app/greeting", { exact: false }).first(),
     ).toBeVisible();
 
-    // 5. Switch to explorer and navigate to the URI's path.
-    await app.getByRole("button", { name: /Explorer/ }).click();
-    await app.goto("/explorer/mutable/app/greeting");
+    // 5. SPA-navigate to the explorer route (a real goto would reload the
+    // page and wipe the in-memory rig we just wrote into).
+    await app.evaluate(() => {
+      window.history.pushState({}, "", "/explorer/mutable/app/greeting");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
 
-    // 6. The record we just wrote is rendered.
+    // 6. The record we just wrote is rendered through the hinted display.
     await expect(app.getByText("Record Data")).toBeVisible();
-    await expect(app.getByText("hi from editor")).toBeVisible();
+    await expect(app.getByText(/hi from editor/)).toBeVisible();
   });
 
   test("bottom-panel log shows receive:success after write", async ({ app }) => {
