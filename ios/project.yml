@@ -1,0 +1,42 @@
+name: B3ndRig
+
+options:
+  bundleIdPrefix: tech.bandeira.b3nd
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+packages:
+  B3ndKit:
+    path: Packages/B3ndKit
+
+targets:
+  B3ndRig:
+    type: application
+    platform: iOS
+    sources:
+      - path: B3ndRig
+    dependencies:
+      - package: B3ndKit
+    info:
+      path: B3ndRig/Support/Info.plist
+      properties:
+        CFBundleDisplayName: B3nd Rig
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # Allow http://localhost for the local-api backend during development.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tech.bandeira.b3nd.rig
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: NO
