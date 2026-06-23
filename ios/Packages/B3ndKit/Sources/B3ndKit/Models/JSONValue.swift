@@ -54,6 +54,20 @@ public indirect enum JSONValue: Codable, Equatable, Hashable, Sendable {
     /// Array payload when the value is a JSON array, else nil.
     public var arrayValue: [JSONValue]? { if case .array(let a) = self { return a } else { return nil } }
 
+    /// The value as `[String]` when it is an array of JSON strings (e.g. an
+    /// observe batch of URIs), else nil.
+    public var stringArray: [String]? {
+        guard case .array(let a) = self else { return nil }
+        return a.compactMap(\.stringValue)
+    }
+
+    /// Re-decode this value into a concrete `Decodable` type by round-tripping
+    /// through JSON. Used to lift a WS `data` frame into `StatusResult`, etc.
+    public func decoded<T: Decodable>(as type: T.Type) -> T? {
+        guard let data = try? JSONEncoder().encode(self) else { return nil }
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+
     /// Pretty-printed JSON for display.
     public func prettyPrinted() -> String {
         let data = try? JSONEncoder.pretty.encode(self)

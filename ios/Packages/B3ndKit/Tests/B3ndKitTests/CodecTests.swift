@@ -75,6 +75,57 @@ final class PathTests: XCTestCase {
     }
 }
 
+final class WsFrameTests: XCTestCase {
+    func testEncodeObserveRequest() throws {
+        let data = try WsFrame.encodeRequest(
+            id: "abc", type: .observe, payload: WsFrame.observePayload(urls: ["mutable://open/**"]))
+        let parsed = try JSONDecoder().decode(JSONValue.self, from: data)
+        guard case .object(let obj) = parsed else { return XCTFail("not object") }
+        XCTAssertEqual(obj["id"], .string("abc"))
+        XCTAssertEqual(obj["type"], .string("observe"))
+        XCTAssertEqual(obj["payload"], .object(["urls": .array([.string("mutable://open/**")])]))
+    }
+
+    func testObserveCancelRawValue() {
+        XCTAssertEqual(WsRequestType.observeCancel.rawValue, "observe-cancel")
+    }
+
+    func testParseBatchFrame() {
+        let frame = "{\"id\":\"s1\",\"success\":true,\"data\":[\"mutable://open/a\",\"mutable://open/b\"]}"
+        let resp = WsFrame.parse(frame)
+        XCTAssertEqual(resp?.observeSignal, .batch(["mutable://open/a", "mutable://open/b"]))
+    }
+
+    func testParseEndOfStreamNull() {
+        let resp = WsFrame.parse("{\"id\":\"s1\",\"success\":true,\"data\":null}")
+        XCTAssertEqual(resp?.observeSignal, .end)
+    }
+
+    func testParseErrorFrameIsEnd() {
+        let resp = WsFrame.parse("{\"id\":\"s1\",\"success\":false,\"error\":\"boom\"}")
+        XCTAssertEqual(resp?.success, false)
+        XCTAssertEqual(resp?.error, "boom")
+        XCTAssertEqual(resp?.observeSignal, .end)
+    }
+
+    func testParseMalformedReturnsNil() {
+        XCTAssertNil(WsFrame.parse("not json"))
+        XCTAssertNil(WsFrame.parse("{\"no_id\":true}"))
+    }
+
+    func testWebSocketURLDerivation() {
+        XCTAssertEqual(
+            B3ndSocket.webSocketURL(from: URL(string: "https://node.example.com")!).absoluteString,
+            "wss://node.example.com/api/v1/ws")
+        XCTAssertEqual(
+            B3ndSocket.webSocketURL(from: URL(string: "http://localhost:9942")!).absoluteString,
+            "ws://localhost:9942/api/v1/ws")
+        XCTAssertEqual(
+            B3ndSocket.webSocketURL(from: URL(string: "https://host/base/")!).absoluteString,
+            "wss://host/base/api/v1/ws")
+    }
+}
+
 final class DisplayHintTests: XCTestCase {
     func testObjectIsJSON() {
         let hint = DisplayHinter.derive(uri: "mutable://open/x", data: .object(["a": .number(1)]))

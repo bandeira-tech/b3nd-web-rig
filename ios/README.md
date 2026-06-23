@@ -42,6 +42,22 @@ demo nodes:
 (`lenSize: 2`); the `receive` body is the same framing at `lenSize: 4`. See
 `Codecs/` — these are faithful ports of `b3nd-move/src/codecs/*`.
 
+### Realtime (`observe` over WebSocket)
+
+`B3ndSocket` speaks the `b3nd-move` WebSocket protocol at `wss://…/api/v1/ws`:
+one persistent socket, JSON frames keyed by `id`
+(`{ id, type, payload }` → `{ id, success, data?, error? }`). `observe` yields
+repeated `string[]` batches (URIs that changed), terminated by a `data: null`
+frame. `WsFrame` (pure, unit-tested) handles the framing; `B3ndSocket` (an
+`actor`) owns the connection, request/response multiplexing, and observe
+subscriptions as `AsyncStream<[String]>`.
+
+> **Note:** `observe` only lights up against a node that runs the `ws` service.
+> The public demo nodes expose the HTTP API only (`/api/v1/ws` is 404), so the
+> app shows **Offline** and falls back to pull-to-refresh — the same graceful
+> degradation the web rig does. Point at a local dev node (`deno task serve
+> -- --ws`) to see Explorer update live.
+
 ## Build & run
 
 Requires Xcode 15+ and [XcodeGen](https://github.com/yonsei/XcodeGen)
@@ -72,9 +88,10 @@ the live backend returns for an un-framed payload) and the path/display logic.
 ## Foundation scope & next steps
 
 Wired to real nodes today: **Explore** (schema-driven browse, lazy listing,
-content-typed record rendering), **Write** (`receive` with `{account}`
-templating), **Nodes** (live status/health/capabilities), **Settings**
-(backend switching + custom backends + theme).
+content-typed record rendering, **live updates** via `observe`), **Write**
+(`receive` with `{account}` templating), **Nodes** (live status/health +
+realtime Live/Offline indicator), **Settings** (backend switching + custom
+backends + theme).
 
 Scaffolded: **Accounts** generate real Ed25519 keypairs (CryptoKit) but writes
 are not yet signed-enveloped; **Apps** frames the mountable-app model.
@@ -82,6 +99,7 @@ are not yet signed-enveloped; **Apps** frames the mountable-app model.
 Planned next:
 - Signed-envelope writes (`signed://<pubkey>/…`) + encryption, matching the web
   rig's `editorService`.
-- Live `observe` over the WebSocket / NDJSON stream for push updates.
 - Move account private keys to the Keychain.
 - Mount the built-in apps (Notes, Bookmarks, Files, Inbox) on the rig slot.
+- iOS CI (macOS runner): `swift test` + `xcodebuild` so the app target is
+  verified on every change.

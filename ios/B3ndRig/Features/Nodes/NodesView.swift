@@ -14,6 +14,11 @@ struct NodesView: View {
                     Section("Connected node") {
                         DetailRow(label: "Name", value: backend.name)
                         DetailRow(label: "Base URL", value: backend.baseURL.absoluteString, mono: true)
+                        HStack {
+                            Text("Realtime")
+                            Spacer()
+                            liveIndicator
+                        }
                     }
                 }
 
@@ -37,6 +42,24 @@ struct NodesView: View {
                 }
             }
             .refreshable { await store.refreshStatus() }
+        }
+    }
+
+    @ViewBuilder
+    private var liveIndicator: some View {
+        switch store.liveState {
+        case .live:
+            StatusPill("Live", color: .green)
+        case .connecting:
+            HStack(spacing: 6) { ProgressView().scaleEffect(0.7); Text("Connecting…").font(.caption).foregroundStyle(.secondary) }
+        case .offline:
+            HStack(spacing: 8) {
+                StatusPill("Offline", color: .secondary)
+                Button("Retry") { Task { await store.checkLive() } }
+                    .font(.caption).buttonStyle(.borderless)
+            }
+        case .unknown:
+            Text("—").foregroundStyle(.secondary)
         }
     }
 

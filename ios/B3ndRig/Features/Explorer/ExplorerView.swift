@@ -73,17 +73,22 @@ private struct DirectoryView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(isRoot ? .large : .inline)
-        .task(id: store.activeBackendID) { await load() }
+        .task(id: store.activeBackendID) {
+            await load()
+            await observeLoop()
+        }
     }
 
     private var isRoot: Bool { path == "/" }
 
-    private func load() async {
+    /// On a live (silent) refresh we keep the current list on screen and only
+    /// swap it on success, so realtime updates don't flash a spinner.
+    private func load(silent: Bool = false) async {
         guard let rig = store.rig else {
-            phase = .failed("No active backend.")
+            if !silent { phase = .failed("No active backend.") }
             return
         }
-        phase = .loading
+        if !silent { phase = .loading }
         do {
             if isRoot {
                 nodes = try await rig.rootNodes(extraPrefixes: store.extraRootPrefixes())
@@ -92,7 +97,31 @@ private struct DirectoryView: View {
             }
             phase = .loaded
         } catch {
-            phase = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            if !silent {
+                phase = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            }
+        }
+    }
+
+    /// Re-list this directory whenever a change fires under its URI prefix.
+    /// Reconnects with a short backoff until the view goes away. Root stays
+    /// pull-only (no single prefix to watch).
+    private func observeLoop() async {
+        guard !isRoot, let uri = try? B3ndPaths.pathToURI(path) else { return }
+        let prefix = uri.hasSuffix("/") ? uri : uri + "/"
+        let pattern = prefix + "**"
+        while !Task.isCancelled {
+            guard let stream = store.liveObserve([pattern]) else {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                continue
+            }
+            for await batch in stream {
+                if batch.contains(where: { $0.hasPrefix(prefix) }) {
+                    await load(silent: true)
+                }
+            }
+            if Task.isCancelled { break }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
         }
     }
 }
@@ -127,7 +156,10 @@ private struct RecordView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: path) { await load() }
+        .task(id: path) {
+            await load()
+            await observeLoop()
+        }
     }
 
     private var uriBar: some View {
@@ -145,17 +177,35 @@ private struct RecordView: View {
         .background(.thinMaterial)
     }
 
-    private func load() async {
+    private func load(silent: Bool = false) async {
         guard let rig = store.rig else {
-            phase = .failed("No active backend.")
+            if !silent { phase = .failed("No active backend.") }
             return
         }
-        phase = .loading
+        if !silent { phase = .loading }
         do {
             payload = try await rig.readRecord(path)
             phase = .loaded
         } catch {
-            phase = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            if !silent {
+                phase = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            }
+        }
+    }
+
+    /// Re-read this record whenever its exact URI fires.
+    private func observeLoop() async {
+        guard let uri = try? B3ndPaths.pathToURI(path) else { return }
+        while !Task.isCancelled {
+            guard let stream = store.liveObserve([uri]) else {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                continue
+            }
+            for await batch in stream where batch.contains(uri) {
+                await load(silent: true)
+            }
+            if Task.isCancelled { break }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
         }
     }
 }

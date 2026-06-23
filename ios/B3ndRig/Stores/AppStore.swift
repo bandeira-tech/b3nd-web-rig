@@ -2,6 +2,22 @@ import Foundation
 import SwiftUI
 import B3ndKit
 
+/// Realtime connection state for the active node's WebSocket (`observe`).
+/// `.offline` covers both "node has no ws service" and "unreachable" — the app
+/// degrades to pull-only either way.
+enum LiveState: Equatable {
+    case unknown, connecting, live, offline
+
+    var label: String {
+        switch self {
+        case .unknown: return "—"
+        case .connecting: return "Connecting…"
+        case .live: return "Live"
+        case .offline: return "Offline"
+        }
+    }
+}
+
 /// App-wide theme preference, mirroring the web rig's `ThemeMode`.
 enum ThemeMode: String, CaseIterable, Identifiable {
     case system, light, dark
@@ -34,6 +50,10 @@ final class AppStore: ObservableObject {
         didSet { Persistence.theme = theme }
     }
 
+    // Realtime (WebSocket observe)
+    @Published private(set) var liveState: LiveState = .unknown
+    private var socket: B3ndSocket?
+
     // Identity (foundation: local Ed25519 accounts, no signed envelopes yet)
     @Published private(set) var accounts: [ManagedAccount] = []
     @Published var activeAccountID: String?
@@ -62,6 +82,7 @@ final class AppStore: ObservableObject {
         loadBackends()
         accounts = Persistence.accounts
         activeAccountID = Persistence.activeAccountID ?? accounts.first?.id
+        rebuildSocket()
         Task { await refreshStatus() }
     }
 
@@ -87,7 +108,37 @@ final class AppStore: ObservableObject {
         Persistence.activeBackendID = id
         status = nil
         statusError = nil
+        rebuildSocket()
         Task { await refreshStatus() }
+    }
+
+    // MARK: - realtime
+
+    /// Recreate the WebSocket for the active backend and probe its liveness.
+    private func rebuildSocket() {
+        let previous = socket
+        socket = activeBackend.map { B3ndSocket(baseURL: $0.baseURL) }
+        liveState = .unknown
+        Task { await previous?.close() }
+        Task { await checkLive() }
+    }
+
+    /// Probe whether the active node speaks the WS protocol.
+    func checkLive() async {
+        guard let socket else { liveState = .offline; return }
+        liveState = .connecting
+        do {
+            _ = try await socket.status()
+            liveState = .live
+        } catch {
+            liveState = .offline
+        }
+    }
+
+    /// A live stream of URI batches matching `patterns`, or nil if there is no
+    /// active node. The stream finishes on disconnect; callers re-subscribe.
+    func liveObserve(_ patterns: [String]) -> AsyncStream<[String]>? {
+        socket?.observe(patterns)
     }
 
     @discardableResult
