@@ -1,0 +1,19 @@
+{
+  "defaults": {
+    "backend": "vercel-demo"
+  },
+  "backends": {
+    "vercel-demo": {
+      "name": "b3nd-free / vercel (Edge + Neon)",
+      "baseUrl": "https://b3nd-free-vercel.vercel.app"
+    },
+    "cf-demo": {
+      "name": "b3nd-free / cloudflare (Workers + DO)",
+      "baseUrl": "https://cf-demo-b3nd.rafaelbandeira3.workers.dev"
+    },
+    "local-api": {
+      "name": "Local HTTP API",
+      "baseUrl": "http://localhost:9942"
+    }
+  }
+}
