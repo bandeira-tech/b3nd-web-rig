@@ -30,7 +30,7 @@ dist-ssr
 
 # Generated data (built from sources, not tracked)
 public/learn/
-public/dashboard/test-results.json
+public/dashboard/
 
 # Playwright MCP session artifacts
 .playwright-mcp/
