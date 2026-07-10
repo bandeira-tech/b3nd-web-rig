@@ -1,4 +1,5 @@
 import { HttpClient } from "@jsr/bandeira-tech__b3nd-move/http/client";
+import { httpOutputsFrame } from "@jsr/bandeira-tech__b3nd-move/codecs/http";
 import { BYTES_ENTITY } from "@jsr/bandeira-tech__b3nd-save";
 import { mapToBytes, SaveClient } from "@jsr/bandeira-tech__b3nd-save/clients";
 import { MemoryStore } from "@jsr/bandeira-tech__b3nd-save/memory";
@@ -19,7 +20,7 @@ export async function clientForBaseUrl(
   baseUrl: string,
 ): Promise<ProtocolInterfaceNode> {
   if (baseUrl.startsWith("http://") || baseUrl.startsWith("https://")) {
-    return new HttpClient({ url: baseUrl });
+    return new HttpClient({ url: baseUrl, codec: httpOutputsFrame() });
   }
   if (baseUrl.startsWith("memory://")) {
     const store = new MemoryStore();
