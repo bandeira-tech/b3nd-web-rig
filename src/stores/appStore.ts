@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { connection, Rig } from "@jsr/bandeira-tech__b3nd-core/rig";
 import { Identity } from "@jsr/bandeira-tech__b3nd-core/identity";
 import { WebSocketClient } from "@jsr/bandeira-tech__b3nd-move/ws/client";
+import { wsJsonEnvelope } from "@jsr/bandeira-tech__b3nd-move/codecs/ws";
 import { clientForBaseUrl } from "../services/client";
 
 // Derive `wss://host/api/v1/ws` from an `http(s)://host` base URL.
@@ -130,6 +131,7 @@ async function createBackendFromUrl(
     ? new WebSocketClient({
       url: httpToWsUrl(baseUrl),
       reconnect: { enabled: true },
+      codec: wsJsonEnvelope(),
     })
     : null;
   const rig = new Rig({
@@ -299,6 +301,7 @@ export const useAppStore = create<AppStore>()(
               ? new WebSocketClient({
                 url: httpToWsUrl(baseUrl),
                 reconnect: { enabled: true },
+                codec: wsJsonEnvelope(),
               })
               : null;
             rig = new Rig({
