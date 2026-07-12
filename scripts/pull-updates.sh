@@ -109,11 +109,10 @@ npm run --silent build
 
 if [[ "$DEPLOY" == "1" ]]; then
   echo "→ wrangler pages deploy"
-  env -u CLOUDFLARE_API_TOKEN sh -c '\
-    npx wrangler pages deploy dist \
-      --project-name b3nd-web-rig \
-      --branch main \
-      --commit-dirty=true'
+  npx wrangler pages deploy dist \
+    --project-name b3nd-web-rig \
+    --branch main \
+    --commit-dirty=true
 fi
 
 if [[ "$COMMIT" == "1" ]]; then
