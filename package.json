@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@jsr/bandeira-tech__b3nd-core": "0.22.0",
-    "@jsr/bandeira-tech__b3nd-move": "0.18.2",
+    "@jsr/bandeira-tech__b3nd-move": "0.20.1",
     "@jsr/bandeira-tech__b3nd-save": "https://npm.jsr.io/~/11/@jsr/bandeira-tech__b3nd-save/0.8.1.tgz",
     "@tanstack/react-query": "^5.90.2",
     "clsx": "^2.1.1",

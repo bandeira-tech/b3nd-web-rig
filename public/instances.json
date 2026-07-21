@@ -1,8 +1,12 @@
 {
   "defaults": {
-    "backend": "vercel-demo"
+    "backend": "hoje-ai-data"
   },
   "backends": {
+    "hoje-ai-data": {
+      "name": "hoje.ai data node (Cloudflare)",
+      "baseUrl": "https://hoje-ai-data-bytes-http-api-light-bytes-cf.rafaelbandeira3.workers.dev"
+    },
     "vercel-demo": {
       "name": "b3nd-free / vercel (Edge + Neon)",
       "baseUrl": "https://b3nd-free-vercel.vercel.app"
